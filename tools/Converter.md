@@ -60,3 +60,31 @@ To use this code, compile it and run the resulting executable with the following
 The program will read the matrix from the file, convert it to CSR format, and print the CSR matrix representation to the console.
 
 Note: Make sure to have the necessary Matrix Market file available for input.
+
+#Example
+
+
+Suppose we have an input file named input.mtx with the following content:
+
+```plaintext
+%%MatrixMarket matrix coordinate real general 
+%
+% This is a comment line
+%
+5 5 8
+1 1 2.0
+1 3 1.5
+2 2 3.7
+3 1 4.2
+3 4 2.8
+4 3 6.1
+5 2 5.0
+5 5 9.3
+```
+
+```
+CSR Matrix Representation:
+Row Pointers: 0 0 2 4 6 8
+Column Indices: 0 2 1 3 2 1 3 4
+Values: 2 1.5 3.7 4.2 2.8 6.1 5 9.3
+```
