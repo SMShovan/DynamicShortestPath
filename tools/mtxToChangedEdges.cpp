@@ -54,11 +54,11 @@ void writeModifiedEdges(const std::string& filename, const std::vector<Edge>& mo
     file << modifiedEdges.size() << " " << 5 << " " << modifiedEdges.size() << "\n";
 
     for (const Edge& edge : modifiedEdges) {
-        file << edge.source << " " << edge.destination << " " << edge.weight;
-
         if (edge.weight > 0) {
+            file << edge.source << " " << edge.destination << " " << edge.weight;
             file << " +1\n";
         } else {
+            file << edge.source << " " << edge.destination << " " << -1*edge.weight;
             file << " -1\n";
         }
     }
