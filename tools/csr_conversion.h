@@ -3,77 +3,42 @@
 
 #include <iostream>
 #include <fstream>
-#include <sstream>
 #include <vector>
-#include <algorithm>
+#include <sstream>
 
-struct CSRMatrix {
-    std::vector<int> rowPointers;
-    std::vector<int> columnIndices;
-    std::vector<double> values;
+struct Edge {
+    int source;
+    int destination;
+    double weight;
+
+    Edge(int src, int dest, double w) : source(src), destination(dest), weight(w) {}
 };
 
-// Function to convert Matrix Market file to CSR format
-CSRMatrix convertToCSR(const std::string& filename) {
-    CSRMatrix csrMatrix;
-
-    // Open the Matrix Market file
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open the file: " << filename << std::endl;
-        return csrMatrix;
+std::vector<std::vector<Edge>> convertToCSR1(const std::string& filename) {
+    std::ifstream inputFile(filename);
+    if (!inputFile.is_open()) {
+        std::cerr << "Unable to open input file: " << filename << std::endl;
+        return std::vector<std::vector<Edge>>();
     }
 
-    // Variables to store matrix properties
+    // Read the Matrix Market file and convert it to CSR format
     std::string line;
-    int rows, cols, nnz;
-    bool isPattern = false;
+    int numRows, numCols, numNonZero;
+    std::getline(inputFile, line);
+    std::istringstream headerStream(line);
+    headerStream >> numRows >> numCols >> numNonZero;
 
-    // Read the Matrix Market header
-    while (std::getline(file, line)) {
-        if (line[0] != '%') {
-            std::istringstream iss(line);
-            iss >> rows >> cols >> nnz;
-            if (line.find("pattern") != std::string::npos)
-                isPattern = true;
-            break;
-        }
+    std::vector<std::vector<Edge>> csrMatrix(numRows);
+
+    while (std::getline(inputFile, line)) {
+        std::istringstream lineStream(line);
+        int row, col;
+        double value;
+        lineStream >> row >> col >> value;
+        csrMatrix[row - 1].emplace_back(row - 1, col - 1, value);
     }
 
-    // Variables for CSR data structure
-    csrMatrix.rowPointers.resize(rows + 1, 0);
-    csrMatrix.columnIndices.resize(nnz, 0);
-    if (!isPattern)
-        csrMatrix.values.resize(nnz, 0.0);
-
-    // Read the non-zero entries
-    int row, col;
-    double value = 1.0; // Default value if pattern-only
-    int index = 0;
-    while (std::getline(file, line)) {
-        std::istringstream iss(line);
-        iss >> row >> col;
-        if (!isPattern)
-            iss >> value;
-
-        row--; // Convert to 0-based indexing
-        col--;
-
-        csrMatrix.rowPointers[row + 1]++;
-        csrMatrix.columnIndices[index] = col;
-        if (!isPattern)
-            csrMatrix.values[index] = value;
-
-        index++;
-    }
-
-    // Calculate the row pointers
-    for (int i = 2; i <= rows; i++) {
-        csrMatrix.rowPointers[i] += csrMatrix.rowPointers[i - 1];
-    }
-
-    // Close the file
-    file.close();
+    inputFile.close();
 
     return csrMatrix;
 }

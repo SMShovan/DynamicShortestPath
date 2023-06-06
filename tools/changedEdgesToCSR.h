@@ -3,62 +3,44 @@
 
 #include <iostream>
 #include <fstream>
-#include <sstream>
 #include <vector>
+#include <sstream>
 
-// Struct to represent a modified edge
-struct ModifiedEdge {
+struct Edge {
     int source;
     int destination;
     double weight;
-    int changeType; // +1 for insertion, -1 for deletion
+
+    Edge(int src, int dest, double w) : source(src), destination(dest), weight(w) {}
 };
 
-// Function to convert modified edges to CSR format
-bool convertToCSR(const std::string& inputFile, std::vector<int>& rowPointers, std::vector<int>& columnIndices, std::vector<double>& values) {
-    std::ifstream file(inputFile);
+std::vector<std::vector<Edge>> convertToCSR(const std::string& filename) {
+    std::ifstream inputFile(filename);
+    if (!inputFile.is_open()) {
+        std::cerr << "Unable to open input file: " << filename << std::endl;
+        return std::vector<std::vector<Edge>>();
+    }
+
+    // Read the Matrix Market file and convert it to CSR format
     std::string line;
+    int numRows, numCols, numNonZero;
+    std::getline(inputFile, line);
+    std::istringstream headerStream(line);
+    headerStream >> numRows >> numCols >> numNonZero;
 
-    if (!file.is_open()) {
-        std::cout << "Unable to open input file: " << inputFile << std::endl;
-        return false;
+    std::vector<std::vector<Edge>> csrMatrix(numRows);
+
+    while (std::getline(inputFile, line)) {
+        std::istringstream lineStream(line);
+        int row, col, change;
+        double value;
+        lineStream >> row >> col >> value >> change;
+        csrMatrix[row - 1].emplace_back(row - 1, col - 1, value);
     }
 
-    // Skip comment lines
-    while (std::getline(file, line) && line[0] == '%') {}
+    inputFile.close();
 
-    // Read matrix dimensions and number of modified edges
-    int numRows, numCols, numModifiedEdges;
-    std::istringstream dimensions(line);
-    dimensions >> numRows >> numCols >> numModifiedEdges;
-
-    rowPointers.resize(numRows + 1, 0);
-    columnIndices.reserve(numModifiedEdges);
-    values.reserve(numModifiedEdges);
-
-    int numEntries = 0;
-
-    // Read modified edges and construct CSR matrix
-    while (std::getline(file, line)) {
-        std::istringstream iss(line);
-        ModifiedEdge edge;
-        iss >> edge.source >> edge.destination >> edge.weight >> edge.changeType;
-
-        rowPointers[edge.source]++;
-        columnIndices.push_back(edge.destination);
-        values.push_back(edge.weight);
-        numEntries++;
-    }
-
-    // Update row pointers to cumulative sum
-    for (int i = 1; i <= numRows; i++) {
-        rowPointers[i] += rowPointers[i - 1];
-    }
-
-    file.close();
-
-    return true;
+    return csrMatrix;
 }
 
 #endif  // CHANGED_EDGES_TO_CSR_H
-
