@@ -2,6 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <sstream>
+#include <limits>
 
 struct Edge {
     int source;
@@ -10,6 +11,24 @@ struct Edge {
 
     Edge(int src, int dest, double w) : source(src), destination(dest), weight(w) {}
 };
+
+void printShortestPathTree(const std::vector<std::vector<int>>& ssspTree) {
+    std::cout << "Shortest Path Tree:\n";
+
+    for (int i = 0; i < ssspTree.size(); i++) {
+        std::cout << "Node " << i + 1 << ": ";
+
+        if (ssspTree[i].empty()) {
+            std::cout << "No child nodes\n";
+        } else {
+            for (int child : ssspTree[i]) {
+                std::cout << child << " ";
+            }
+            std::cout << "\n";
+        }
+    }
+}
+
 
 std::vector<std::vector<Edge>> convertToCSR(std::ifstream& inputFile) {
     std::string line;
@@ -46,8 +65,7 @@ std::vector<std::vector<Edge>> convertToCSR(std::ifstream& inputFile) {
     return csrMatrix;
 }
 
-
-std::vector<double> dijkstra(const std::vector<std::vector<Edge>>& graphCSR, int sourceNode) {
+std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& graphCSR, int sourceNode) {
     int numNodes = graphCSR.size();
 
     // Create a vector to store the shortest distance from the source node to each node
@@ -84,12 +102,24 @@ std::vector<double> dijkstra(const std::vector<std::vector<Edge>>& graphCSR, int
         }
     }
 
-    return shortestDist;
+    // Build the shortest path tree based on the shortest distances
+    std::vector<std::vector<int>> ssspTree(numNodes);
+    for (int i = 0; i < numNodes; ++i) {
+        if (shortestDist[i] != std::numeric_limits<double>::max()) {
+            int parent = i + 1;
+            for (const Edge& edge : graphCSR[i]) {
+                int child = edge.destination + 1;
+                if (shortestDist[child - 1] == shortestDist[i] + edge.weight) {
+                    ssspTree[parent - 1].push_back(child);
+                }
+            }
+        }
+    }
+
+    return ssspTree;
 }
 
-
-void updateShortestPath(std::vector<double>& shortestPath, const std::vector<std::vector<Edge>>& changedEdgesCSR) {
-    // Iterate over the rows in the changed edges CSR matrix
+void updateShortestPath(std::vector<std::vector<int>>& ssspTree, const std::vector<std::vector<Edge>>& changedEdgesCSR) {
     for (const std::vector<Edge>& row : changedEdgesCSR) {
         for (const Edge& edge : row) {
             int sourceNode = edge.source;
@@ -97,27 +127,25 @@ void updateShortestPath(std::vector<double>& shortestPath, const std::vector<std
             double edgeWeight = edge.weight;
 
             // Check if both source and destination nodes are affected by the modification
-            if (shortestPath[sourceNode] != std::numeric_limits<double>::max() &&
-                shortestPath[destinationNode] != std::numeric_limits<double>::max()) {
-                // Update the CSR matrix for the affected vertices
-                shortestPath[sourceNode] = edgeWeight;
-                shortestPath[destinationNode] = edgeWeight;
+            if (!ssspTree[sourceNode - 1].empty() && !ssspTree[destinationNode - 1].empty()) {
+                // Update the shortest path tree for the affected vertices
+                ssspTree[sourceNode - 1].push_back(destinationNode);
+                ssspTree[destinationNode - 1].push_back(sourceNode);
             }
             // Check if only the source node is affected by the modification
-            else if (shortestPath[sourceNode] != std::numeric_limits<double>::max()) {
-                // Update the CSR matrix for the affected vertex
-                shortestPath[sourceNode] = edgeWeight;
+            else if (!ssspTree[sourceNode - 1].empty()) {
+                // Update the shortest path tree for the affected vertex
+                ssspTree[sourceNode - 1].push_back(destinationNode);
             }
             // Check if only the destination node is affected by the modification
-            else if (shortestPath[destinationNode] != std::numeric_limits<double>::max()) {
-                // Update the CSR matrix for the affected vertex
-                shortestPath[destinationNode] = edgeWeight;
+            else if (!ssspTree[destinationNode - 1].empty()) {
+                // Update the shortest path tree for the affected vertex
+                ssspTree[destinationNode - 1].push_back(sourceNode);
             }
             // Neither source nor destination node is affected, no changes are required
         }
     }
 }
-
 
 int main(int argc, char** argv) {
     // Check the command-line arguments
@@ -157,8 +185,10 @@ int main(int argc, char** argv) {
     std::vector<std::vector<Edge>> graphCSR = convertToCSR(graphInputFile);
     graphInputFile.close();
 
-    // Find the initial shortest path using Dijkstra's algorithm
-    std::vector<double> shortestPath = dijkstra(graphCSR, sourceNode);
+    // Find the initial shortest path tree using Dijkstra's algorithm
+    std::vector<std::vector<int>> ssspTree = dijkstra(graphCSR, sourceNode);
+
+    printShortestPathTree(ssspTree);
 
     // Read the changed edges file in Matrix Market format
     std::ifstream changedEdgesInputFile(changedEdgesFile);
@@ -171,16 +201,12 @@ int main(int argc, char** argv) {
     std::vector<std::vector<Edge>> changedEdgesCSR = convertToCSR(changedEdgesInputFile);
     changedEdgesInputFile.close();
 
-    // Update the shortest path based on the changed edges
-    updateShortestPath(shortestPath, changedEdgesCSR);
+    // Update the shortest path tree based on the changed edges
+    updateShortestPath(ssspTree, changedEdgesCSR);
 
-    // Print or store the updated shortest path
-    std::cout << "Updated Shortest Path from Node " << sourceNode << ":" << std::endl;
-    for (int i = 0; i < shortestPath.size(); i++) {
-        std::cout << "Node " << i + 1 << ": " << shortestPath[i] << std::endl;
-    }
+    
+    printShortestPathTree(ssspTree);
+    
 
     return 0;
 }
-
-
