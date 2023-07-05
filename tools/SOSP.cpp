@@ -364,13 +364,15 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
     }
     int numNodes = ssspTree.size();
     std::vector<std::vector<int>> ssspTree2(numNodes);
+    std::vector<bool> cycleCheck(numNodes, false);
     for (int i = 0; i < numNodes; ++i) {
         if (shortestDist[i] != std::numeric_limits<double>::max()) {
             int parent = i + 1;
             for (const Edge& edge : graphCSR[i]) {
                 int child = edge.destination + 1;
-                if (shortestDist[child - 1] == shortestDist[i] + edge.weight) {
+                if (shortestDist[child - 1] == shortestDist[i] + edge.weight && !cycleCheck[child - 1]) {
                     ssspTree2[parent - 1].push_back(child);
+                    cycleCheck[child - 1] = true; 
                 }
             }
         }
