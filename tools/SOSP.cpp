@@ -12,7 +12,7 @@ struct Edge {
     Edge(int src, int dest, double w) : source(src), destination(dest), weight(w) {}
 };
 
-std::vector<std::vector<Edge>> inDegree;
+std::vector<std::vector<Edge>> predecessor;
 
 std::vector<std::vector<Edge>> convertToCSR(std::ifstream& inputFile, bool isGraph) {
     std::string line;
@@ -47,8 +47,8 @@ std::vector<std::vector<Edge>> convertToCSR(std::ifstream& inputFile, bool isGra
         csrMatrix[row - 1].emplace_back(row - 1, col - 1, value);
         if(isGraph)
         {
-            inDegree.resize(numCols);
-            inDegree[col - 1].emplace_back(row - 1, col - 1, value);
+            predecessor.resize(numCols);
+            predecessor[col - 1].emplace_back(row - 1, col - 1, value);
         }
             
     }
@@ -56,8 +56,8 @@ std::vector<std::vector<Edge>> convertToCSR(std::ifstream& inputFile, bool isGra
     // if (isGraph)
     // {
     //     std::cout << "In-Degree Matrix:" << std::endl;
-    //     for (int col = 0; col < inDegree.size(); ++col) {
-    //         for (const auto& edge : inDegree[col]) {
+    //     for (int col = 0; col < predecessor.size(); ++col) {
+    //         for (const auto& edge : predecessor[col]) {
     //             std::cout << "(" << edge.source << ", " << edge.destination << ", " << edge.weight << ") ";
     //         }
     //         std::cout << std::endl;
