@@ -48,7 +48,7 @@ std::vector<std::vector<Edge>> convertToCSR(std::ifstream& inputFile, bool isGra
         if(isGraph)
         {
             predecessor.resize(numCols);
-            predecessor[col - 1].emplace_back(row - 1, col - 1, value);
+            predecessor[col - 1].emplace_back(row, col, value);
         }
             
     }
@@ -361,7 +361,36 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
                     // for deletion
                     if ( shortestDist[v] == std::numeric_limits<double>::infinity() ){
                         shortestDist[n] = std::numeric_limits<double>::max();
-                        std::cout<< " :Distance Infinity ";
+
+                        // find new parent or put the shortest distance to infinity
+
+                        std::cout<<"\nPredecessor of "<< n + 1 <<" ";
+                        int newDistance = std::numeric_limits<double>::max();
+                        int newParentIndex = -1; 
+                        for (int i = 0; i < predecessor[n].size(); i++)
+                        {
+                            if (shortestDist[predecessor[n][i].source - 1] + predecessor[n][i].weight < newDistance)
+                            {
+                                newDistance = shortestDist[predecessor[n][i].source - 1] + predecessor[n][i].weight;
+                                newParentIndex = predecessor[n][i].source - 1;
+                            } 
+                        }
+                        if (newParentIndex == -1)
+                        {
+                            //std::cout<<"\nNo new parent\n";
+                            parentList[n + 1] = -1; 
+                        }
+                            
+                        else 
+                        {
+                            //std::cout<<"\nNew parent:"<< newParentIndex + 1 <<"\n";
+                            parentList[n + 1] = newParentIndex + 1;   
+                            ssspTree[newParentIndex].first = newParentIndex + 1; 
+                            shortestDist[n] = newDistance; 
+                            ssspTree[newParentIndex].second.push_back(n+1);      
+                        }
+
+                        // remove child from the parent list
                         
                         int oldParent = parentList[n + 1];
                         std::cout<< "old parent: " << oldParent;
@@ -374,7 +403,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
                             }
                         }
 
-                        parentList[n + 1] = -1; 
+                        
                         
 
                         
