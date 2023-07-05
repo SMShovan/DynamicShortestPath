@@ -15,37 +15,58 @@ struct Edge {
 std::vector<std::vector<Edge>> convertToCSR(std::ifstream& inputFile) {
     std::string line;
     int numRows, numCols, numNonZero;
+
     if (!std::getline(inputFile, line)) {
         std::cerr << "Error: Unable to read the header line from the input file." << std::endl;
         exit(1);
     }
+
     std::istringstream headerStream(line);
     if (!(headerStream >> numRows >> numCols >> numNonZero)) {
         std::cerr << "Error: Invalid header format in the input file." << std::endl;
         exit(1);
     }
 
+    // Read all lines first
+    std::vector<std::string> lines;
+    while (std::getline(inputFile, line)) {
+        lines.push_back(line);
+    }
+
     std::vector<std::vector<Edge>> csrMatrix(numRows);
 
-    int lineCount = 1;
-    while (std::getline(inputFile, line)) {
-        lineCount++;
-        std::istringstream lineStream(line);
+    // Parallelize the processing of the lines
+    #pragma omp parallel for
+    for (int lineCount = 0; lineCount < lines.size(); ++lineCount) {
+        std::istringstream lineStream(lines[lineCount]);
         int row, col;
         double value;
         if (!(lineStream >> row >> col >> value)) {
-            std::cerr << "Error: Invalid line format at line " << lineCount << " in the input file." << std::endl;
+            #pragma omp critical
+            {
+                std::cerr << "Error: Invalid line format at line " << lineCount + 2 << " in the input file." << std::endl;
+            }
             exit(1);
         }
         if (row < 1 || row > numRows || col < 1 || col > numCols) {
-            std::cerr << "Error: Invalid vertex indices at line " << lineCount << " in the input file." << std::endl;
+            #pragma omp critical
+            {
+                std::cerr << "Error: Invalid vertex indices at line " << lineCount + 2 << " in the input file." << std::endl;
+            }
             exit(1);
         }
-        csrMatrix[row - 1].emplace_back(row - 1, col - 1, value);
+        #pragma omp critical
+        {
+            csrMatrix[row - 1].emplace_back(row - 1, col - 1, value);
+        }
     }
 
     return csrMatrix;
 }
+
+#include <omp.h>
+#include <vector>
+#include <limits>
 
 std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& graphCSR, int sourceNode, std::vector<double>& shortestDist, std::vector<int>& parentList) {
     int numNodes = graphCSR.size();
@@ -61,10 +82,17 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
         // Find the node with the minimum distance among the unvisited nodes
         int minDistNode = -1;
         double minDist = std::numeric_limits<double>::max();
+
+        #pragma omp parallel for reduction(min:minDist)
         for (int j = 0; j < numNodes; ++j) {
             if (!visited[j] && shortestDist[j] < minDist) {
-                minDist = shortestDist[j];
-                minDistNode = j;
+                #pragma omp critical
+                {
+                    if (shortestDist[j] < minDist) {
+                        minDist = shortestDist[j];
+                        minDistNode = j;
+                    }
+                }
             }
         }
 
@@ -76,56 +104,38 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
             int neighbor = edge.destination;
             double weight = edge.weight;
             if (!visited[neighbor] && shortestDist[minDistNode] + weight < shortestDist[neighbor]) {
-                shortestDist[neighbor] = shortestDist[minDistNode] + weight;
+                #pragma omp critical
+                {
+                    if (shortestDist[minDistNode] + weight < shortestDist[neighbor]) {
+                        shortestDist[neighbor] = shortestDist[minDistNode] + weight;
+                    }
+                }
             }
         }
     }
 
     // Build the shortest path tree based on the shortest distances
     std::vector<std::vector<int>> ssspTree(numNodes);
-    std::vector<bool> cycleCheck (numNodes, false);
+    #pragma omp parallel for
     for (int i = 0; i < numNodes; ++i) {
         if (shortestDist[i] != std::numeric_limits<double>::max()) {
             int parent = i + 1;
             for (const Edge& edge : graphCSR[i]) {
                 int child = edge.destination + 1;
-                if (shortestDist[child - 1] == shortestDist[i] + edge.weight && !cycleCheck[child - 1]) {
-                    ssspTree[parent - 1].push_back(child);
-                    cycleCheck[child - 1 ] = true;
-                    parentList[child] = parent;
+                if (shortestDist[child - 1] == shortestDist[i] + edge.weight) {
+                    #pragma omp critical
+                    {
+                        ssspTree[parent - 1].push_back(child);
+                        parentList[child] = parent;
+                    }
                 }
             }
         }
     }
 
-    // // Print shortestDist
-    // std::cout << "Parent list:\n";
-    // for (int i = 1; i <= numNodes; ++i) {
-    //     std::cout<< "Child: "<< i << " Parent: "<< parentList[i];
-    // }
-
-    // // Print shortestDist
-    // std::cout << "Shortest Distances:\n";
-    // for (int i = 0; i < numNodes; ++i) {
-    //     if (shortestDist[i] == std::numeric_limits<double>::max()) {
-    //         std::cout << "Node " << i + 1 << ": Infinity\n";
-    //     } else {
-    //         std::cout << "Node " << i + 1 << ": " << shortestDist[i] << "\n";
-    //     }
-    // }
-
-    // // Print ssspTree
-    // std::cout << "Shortest Path Tree:\n";
-    // for (int i = 0; i < numNodes; ++i) {
-    //     std::cout << "Node " << i + 1 << ": ";
-    //     for (int child : ssspTree[i]) {
-    //         std::cout << child << " ";
-    //     }
-    //     std::cout << "\n";
-    // }
-
     return ssspTree;
 }
+
 
 
 
@@ -169,14 +179,18 @@ void markSubtreeAffected(std::vector<std::pair<int, std::vector<int>>>& parentCh
 }
 
 
-std::vector<std::pair<int, std::vector<int>>> convertToParentChildSSP(const std::vector<std::vector<int>>& ssspTree) {
-    std::vector<std::pair<int, std::vector<int>>> parentChildSSP(ssspTree.size());
 
-    for (int i = 0; i < ssspTree.size(); ++i) {
+std::vector<std::pair<int, std::vector<int>>> convertToParentChildSSP(const std::vector<std::vector<int>>& ssspTree) {
+    int n = ssspTree.size();
+    std::vector<std::pair<int, std::vector<int>>> parentChildSSP(n);
+
+    #pragma omp parallel for
+    for (int i = 0; i < n; ++i) {
         parentChildSSP[i].first = i + 1;  // Set the node as the parent in the parent-child SSP structure
         parentChildSSP[i].second = ssspTree[i];  // Set the child nodes
     }
 
+    // Optionally, For debug output serial, or remove it
     // std::cout << "Parent-Child SSP Tree:\n";
     // for (const auto& node : parentChildSSP) {
     //     std::cout << "Parent: " << node.first << ", Children: ";
@@ -188,6 +202,7 @@ std::vector<std::pair<int, std::vector<int>>> convertToParentChildSSP(const std:
 
     return parentChildSSP;
 }
+
 
 
 
@@ -224,7 +239,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
         // }
         x = edge.source;
         y = edge.destination;
-        if (shortestDist[y] > shortestDist[x] + edge.weight) {
+        if (shortestDist[y ] > shortestDist[x] + edge.weight) {
             shortestDist[y] = shortestDist[x] + edge.weight;
             
             // Add the new edge to the graph
