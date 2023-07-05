@@ -12,7 +12,9 @@ struct Edge {
     Edge(int src, int dest, double w) : source(src), destination(dest), weight(w) {}
 };
 
-std::vector<std::vector<Edge>> convertToCSR(std::ifstream& inputFile) {
+std::vector<std::vector<Edge>> inDegree;
+
+std::vector<std::vector<Edge>> convertToCSR(std::ifstream& inputFile, bool isGraph) {
     std::string line;
     int numRows, numCols, numNonZero;
     if (!std::getline(inputFile, line)) {
@@ -26,6 +28,7 @@ std::vector<std::vector<Edge>> convertToCSR(std::ifstream& inputFile) {
     }
 
     std::vector<std::vector<Edge>> csrMatrix(numRows);
+    
 
     int lineCount = 1;
     while (std::getline(inputFile, line)) {
@@ -42,7 +45,27 @@ std::vector<std::vector<Edge>> convertToCSR(std::ifstream& inputFile) {
             exit(1);
         }
         csrMatrix[row - 1].emplace_back(row - 1, col - 1, value);
+        if(isGraph)
+        {
+            inDegree.resize(numCols);
+            inDegree[col - 1].emplace_back(row - 1, col - 1, value);
+        }
+            
     }
+
+    // if (isGraph)
+    // {
+    //     std::cout << "In-Degree Matrix:" << std::endl;
+    //     for (int col = 0; col < inDegree.size(); ++col) {
+    //         for (const auto& edge : inDegree[col]) {
+    //             std::cout << "(" << edge.source << ", " << edge.destination << ", " << edge.weight << ") ";
+    //         }
+    //         std::cout << std::endl;
+    //     }  
+    // }    
+        
+
+
 
     return csrMatrix;
 }
@@ -308,10 +331,10 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
                 for (const Edge& edge : graphCSR[v] ) {
                     int n = edge.destination;
                     
-                    std::cout<< " -> destination"<< n+1 <<"";
+                    std::cout<< " -> destination"<< n + 1 <<"";
 
                     // for insertion
-                    if (shortestDist[n] > shortestDist[v] + edge.weight) {
+                    if (shortestDist[n] > shortestDist[v] + edge.weight && shortestDist[v] != std::numeric_limits<double>::infinity()) {
                         
                         shortestDist[n] = shortestDist[v] + edge.weight;
                         std::cout<< " :Distance Improved ";
@@ -436,7 +459,7 @@ int main(int argc, char** argv) {
     }
 
     // Convert the input graph to CSR format
-    std::vector<std::vector<Edge>> graphCSR = convertToCSR(graphInputFile);
+    std::vector<std::vector<Edge>> graphCSR = convertToCSR(graphInputFile, true);
     graphInputFile.close();
 
     // Find the initial shortest path tree using Dijkstra's algorithm
@@ -455,8 +478,10 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+  
+
     // Convert the changed edges to CSR format
-    std::vector<std::vector<Edge>> changedEdgesCSR = convertToCSR(changedEdgesInputFile);
+    std::vector<std::vector<Edge>> changedEdgesCSR = convertToCSR(changedEdgesInputFile, false);
     changedEdgesInputFile.close();
 
     // Update the shortest path tree based on the changed edges
