@@ -336,6 +336,8 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
         if (newParentIndex == -1)
         {
             parentList[n + 1] = -1; 
+            shortestDist[n] = std::numeric_limits<double>::infinity();
+
         }
             
         else 
@@ -447,11 +449,9 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
                         if (newParentIndex == -1)
                         {
-                            std::cout<<"\nNo new parent\n";
                             parentList[n + 1] = -1; 
                             shortestDist[n] = std::numeric_limits<double>::infinity();
-                            std::cout<< n + 1;
-
+                        
                         }
                     
                         else 
