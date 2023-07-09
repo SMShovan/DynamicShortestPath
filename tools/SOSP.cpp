@@ -86,7 +86,7 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
     for (int i = 0; i < numNodes - 1; ++i) {
         // Find the node with the minimum distance among the unvisited nodes
         int minDistNode = -1;
-        double minDist = std::numeric_limits<double>::max();
+        double minDist = std::numeric_limits<double>::infinity();
         for (int j = 0; j < numNodes; ++j) {
             if (!visited[j] && shortestDist[j] < minDist) {
                 minDist = shortestDist[j];
@@ -111,7 +111,7 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
     std::vector<std::vector<int>> ssspTree(numNodes);
     std::vector<bool> cycleCheck (numNodes, false);
     for (int i = 0; i < numNodes; ++i) {
-        if (shortestDist[i] != std::numeric_limits<double>::max()) {
+        if (shortestDist[i] != std::numeric_limits<double>::infinity()) {
             int parent = i + 1;
             for (const Edge& edge : graphCSR[i]) {
                 int child = edge.destination + 1;
@@ -133,7 +133,7 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
     // // Print shortestDist
     // std::cout << "Shortest Distances:\n";
     // for (int i = 0; i < numNodes; ++i) {
-    //     if (shortestDist[i] == std::numeric_limits<double>::max()) {
+    //     if (shortestDist[i] == std::numeric_limits<double>::infinity()) {
     //         std::cout << "Node " << i + 1 << ": Infinity\n";
     //     } else {
     //         std::cout << "Node " << i + 1 << ": " << shortestDist[i] << "\n";
@@ -312,12 +312,12 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
         //std::cout << "Source: " << edge.source + 1 << " Destination: " << edge.destination + 1 << " Weight: " << edge.weight << "\n";
         affectedNodes[edge.destination] = true;
         affectedDelNodes[edge.destination] = true;
-        shortestDist[edge.destination] = std::numeric_limits<double>::max();
+        shortestDist[edge.destination] = std::numeric_limits<double>::infinity();
 
         // find new parent or put the shortest distance to infinity
         int n = edge.destination; 
         //std::cout<<"\nPredecessor of "<< n + 1 <<" ";
-        int newDistance = std::numeric_limits<double>::max();
+        int newDistance = std::numeric_limits<double>::infinity();
         int newParentIndex = -1; 
 
 
@@ -342,24 +342,27 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
         {              
             ssspTree[newParentIndex].first = newParentIndex + 1; 
             shortestDist[n] = newDistance; 
-            ssspTree[newParentIndex].second.push_back(n+1);      
+            //ssspTree[newParentIndex].second.push_back(n+1);      
         }
 
     
 
         int oldParent = parentList[edge.destination + 1];
+        //std::cout << "Old parent" <<  oldParent << "\n";
 
-            for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++ )
+            for (int j = 0; j < ssspTree[oldParent - 1].second.size() && oldParent != -1 ; j++ )
             {
                 
                 if (ssspTree[oldParent - 1].second[j] == edge.destination + 1 )
                 {
                     ssspTree[oldParent - 1].second.erase(ssspTree[oldParent - 1].second.begin() + j);
-                    
+
                     break;
                 }
             }
-        parentList[n + 1] = newParentIndex + 1; 
+
+        
+        parentList[edge.destination + 1] = newParentIndex + 1; 
 
     
             
@@ -381,6 +384,8 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
     bool hasAffectedNodes = true;
     while (hasAffectedNodes) {
+
+
         hasAffectedNodes = false;
 
         // Check for affected nodes and update distances
@@ -397,7 +402,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
                     //std::cout<< " -> destination"<< n + 1 <<"";
 
                     // for insertion
-                    if (shortestDist[n] > shortestDist[v] + edge.weight && shortestDist[v] != std::numeric_limits<double>::max()) {
+                    if (shortestDist[n] > shortestDist[v] + edge.weight && shortestDist[v] != std::numeric_limits<double>::infinity()) {
                         
                         shortestDist[n] = shortestDist[v] + edge.weight;
                         //std::cout<< " :Distance Improved ";
@@ -427,8 +432,8 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
                         // find new parent or put the shortest distance to infinity
 
-                        //std::cout<<"\nPredecessor of "<< n + 1 <<" ";
-                        int newDistance = std::numeric_limits<double>::max();
+                        std::cout<<"\nPredecessor of "<< n + 1 <<" ";
+                        int newDistance = std::numeric_limits<double>::infinity();
                         int newParentIndex = -1; 
                         for (int i = 0; i < predecessor[n].size(); i++)
                         {
@@ -438,25 +443,30 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
                                 newParentIndex = predecessor[n][i].source - 1;
                             } 
                         }
+                        int oldParent = parentList[n + 1];
+
                         if (newParentIndex == -1)
                         {
-                            //std::cout<<"\nNo new parent\n";
+                            std::cout<<"\nNo new parent\n";
                             parentList[n + 1] = -1; 
+                            shortestDist[n] = std::numeric_limits<double>::infinity();
+                            std::cout<< n + 1;
+
                         }
-                            
+                    
                         else 
                         {
                             //std::cout<<"\nNew parent:"<< newParentIndex + 1 <<"\n";
                              
                             ssspTree[newParentIndex].first = newParentIndex + 1; 
                             shortestDist[n] = newDistance; 
-                            ssspTree[newParentIndex].second.push_back(n+1);      
+                            //ssspTree[newParentIndex].second.push_back(n+1);      
                         }
 
                         // remove child from the parent list
                         
-                        int oldParent = parentList[n + 1];
-                        //std::cout<< "old parent: " << oldParent;
+                        
+                        std::cout<< "old parent: " << oldParent;
                         for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++ )
                         {
                             if (ssspTree[oldParent - 1].second[j] == n + 1 )
@@ -477,11 +487,13 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
     
 
+    
+
     int numNodes = ssspTree.size();
     std::vector<std::vector<int>> ssspTree2(numNodes);
     std::vector<bool> cycleCheck(numNodes, false);
     for (int i = 0; i < numNodes; ++i) {
-        if (shortestDist[i] != std::numeric_limits<double>::max()) {
+        if (shortestDist[i] != std::numeric_limits<double>::infinity()) {
             int parent = i + 1;
             for (const Edge& edge : graphCSR[i]) {
                 int child = edge.destination + 1;
@@ -495,7 +507,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
     // Print shortestDist
     std::cout << "\nShortest Distances:\n";
     for (int i = 0; i < numNodes; ++i) {
-        if (shortestDist[i] == std::numeric_limits<double>::max()) {
+        if (shortestDist[i] == std::numeric_limits<double>::infinity()) {
             std::cout << "Node " << i + 1 << ": Infinity\n";
         } else {
             std::cout << "Node " << i + 1 << ": " << shortestDist[i] << "\n";
@@ -555,7 +567,7 @@ int main(int argc, char** argv) {
     graphInputFile.close();
 
     // Find the initial shortest path tree using Dijkstra's algorithm
-    std::vector<double> shortestDist(graphCSR.size(), std::numeric_limits<double>::max());
+    std::vector<double> shortestDist(graphCSR.size(), std::numeric_limits<double>::infinity());
     std::vector<int> parent(graphCSR.size() + 1, -1);
     std::vector<std::vector<int>> ssspTree = dijkstra(graphCSR, sourceNode, shortestDist, parent);
 
