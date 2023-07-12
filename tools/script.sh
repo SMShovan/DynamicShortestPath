@@ -1,9 +1,9 @@
 #!/bin/bash
 
 source='1'
-vertices='50000'
-edges='700000'
-insertedEdges='50000'
+vertices='1000'
+edges='15000'
+insertedEdges='500000'
 deletedEdges='0'
 inputGraph='randomgraph.mtx'
 
@@ -15,3 +15,6 @@ clang++ -std=c++11 randomChangedEdges.cpp -o randomChangedEdges && ./randomChang
 
 # Command 3 to run sosp code. g for input graph, c for changed edges, s for source. 
 clang++ -std=c++11 SOSP.cpp -o program && ./program -g $inputGraph -c changeEdges.mtx -s $source
+
+# Command 4 to run parallelSOSP code, 
+clang++ -std=c++11 -Xpreprocessor -fopenmp -lomp parallelSOSP.cpp -o parallelSOSP && ./parallelSOSP -g $inputGraph -c changeEdges.mtx -s $source
