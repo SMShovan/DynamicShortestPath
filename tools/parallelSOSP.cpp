@@ -299,6 +299,10 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
         
         
 
+       // After deletion from graph, check if the deleted edges belong to ssspTree. 
+
+        bool inTree = false;
+
        // Delete the element from the predecessor as well
 
         for (auto& preEdge : predecessor[edge.destination]) 
@@ -307,19 +311,23 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             // Find the iterator pointing to the element
             auto it = std::find(predecessor[edge.destination].begin(), predecessor[edge.destination].end(), preEdge);
             
+            for (int i = 0; i < ssspTree[edge.source].second.size() ; i++)
+            {
+                if (ssspTree[edge.source].second[i] == edge.destination + 1)
+                //std::cout<<"Found in tree"<<std::endl;
+                inTree = true;
+
+            }
 
             if (it != predecessor[edge.destination].end()) {
 
                 predecessor[edge.destination].erase(it);
-
+                
             }
         }
 
-        // std::cout << "Predecessors: ";
-        // for (const auto& edge : predecessor[3]) {
-        //     std::cout << edge.source << " -> " << edge.destination << " ";
-        // }
-        // std::cout << std::endl;
+        if (!inTree)
+            continue;
 
         
 

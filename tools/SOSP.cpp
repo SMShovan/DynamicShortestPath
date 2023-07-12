@@ -300,8 +300,6 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
         bool inTree = false;
 
-        
-
        // Delete the element from the predecessor as well
 
         for (auto& preEdge : predecessor[edge.destination]) 
@@ -322,29 +320,13 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
                 predecessor[edge.destination].erase(it);
                 
-
             }
         }
 
         if (!inTree)
             continue;
 
-        // std::cout << "Predecessor:" << std::endl;
-        // for (int col = 0; col < predecessor.size(); ++col) {
-        //     for (const auto& edge : predecessor[col]) {
-        //         std::cout << "(" << edge.source << ", " << edge.destination << ", " << edge.weight << ") ";
-        //     }
-        //     std::cout << std::endl;
-        // }
-
         
-        
-
-        // std::cout << "Predecessors: ";
-        // for (const auto& edge : predecessor[3]) {
-        //     std::cout << edge.source << " -> " << edge.destination << " ";
-        // }
-        // std::cout << std::endl;
 
         
 
