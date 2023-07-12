@@ -125,6 +125,8 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
         }
     }
 
+    
+
     // // Print shortestDist
     // std::cout << "Parent list:\n";
     // for (int i = 1; i <= numNodes; ++i) {
@@ -173,16 +175,16 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
 //     }
 // }
 
-// void printShortestPathTree(const std::vector<std::pair<int, std::vector<int>>>& parentChildSSP) {
-//     std::cout << "Shortest Path Tree:\n";
-//     for (const auto& node : parentChildSSP) {
-//         std::cout << "Node " << node.first << ": ";
-//         for (int child : node.second) {
-//             std::cout << child << " ";
-//         }
-//         std::cout << "\n";
-//     }
-// }
+void printShortestPathTree(const std::vector<std::pair<int, std::vector<int>>>& parentChildSSP) {
+    std::cout << "Shortest Path Tree:\n";
+    for (const auto& node : parentChildSSP) {
+        std::cout << "Node " << node.first << ": ";
+        for (int child : node.second) {
+            std::cout << child << " ";
+        }
+        std::cout << "\n";
+    }
+}
 
 
 void markSubtreeAffected(std::vector<std::pair<int, std::vector<int>>>& parentChildSSP, std::vector<double>& shortestDist, std::vector<bool>& affectedNodes,std::vector<bool>& affectedDelNodes, int node) {
@@ -236,6 +238,8 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
         }
     }
 
+    
+
     // Print the inserted edges and identify affected nodes
     //std::cout << "Inserted Edges:\n";
     for (const Edge& edge : insertedEdges) {
@@ -280,6 +284,8 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
     // Print the deleted edges and mark affected nodes
     //std::cout << "Deleted Edges:\n";
+
+
     for (const Edge& edge : deletedEdges) {
 
         //Delete the edge from the graph 
@@ -289,7 +295,11 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             break;
         }
         }
-        
+
+        // After deletion from graph, check if the deleted edges belong to ssspTree. 
+
+        bool inTree = false;
+
         
 
        // Delete the element from the predecessor as well
@@ -300,13 +310,35 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             // Find the iterator pointing to the element
             auto it = std::find(predecessor[edge.destination].begin(), predecessor[edge.destination].end(), preEdge);
             
+            for (int i = 0; i < ssspTree[edge.source].second.size() ; i++)
+            {
+                if (ssspTree[edge.source].second[i] == edge.destination + 1)
+                //std::cout<<"Found in tree"<<std::endl;
+                inTree = true;
+
+            }
 
             if (it != predecessor[edge.destination].end()) {
 
                 predecessor[edge.destination].erase(it);
+                
 
             }
         }
+
+        if (!inTree)
+            continue;
+
+        // std::cout << "Predecessor:" << std::endl;
+        // for (int col = 0; col < predecessor.size(); ++col) {
+        //     for (const auto& edge : predecessor[col]) {
+        //         std::cout << "(" << edge.source << ", " << edge.destination << ", " << edge.weight << ") ";
+        //     }
+        //     std::cout << std::endl;
+        // }
+
+        
+        
 
         // std::cout << "Predecessors: ";
         // for (const auto& edge : predecessor[3]) {
@@ -318,6 +350,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
         markSubtreeAffected(ssspTree, shortestDist, affectedNodes, affectedDelNodes, edge.destination);
 
+        
 
         //std::cout << "Source: " << edge.source + 1 << " Destination: " << edge.destination + 1 << " Weight: " << edge.weight << "\n";
         affectedNodes[edge.destination] = true;
@@ -343,6 +376,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             } 
         }
         int oldParent = parentList[edge.destination + 1];
+        
 
         if (newParentIndex == -1)
         {
@@ -375,7 +409,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
         
         parentList[edge.destination + 1] = newParentIndex + 1; 
 
-    
+        
             
 
     }
@@ -498,40 +532,40 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
     
 
-    // int numNodes = ssspTree.size();
-    // std::vector<std::vector<int>> ssspTree2(numNodes);
-    // std::vector<bool> cycleCheck(numNodes, false);
-    // for (int i = 0; i < numNodes; ++i) {
-    //     if (shortestDist[i] != std::numeric_limits<double>::infinity()) {
-    //         int parent = i + 1;
-    //         for (const Edge& edge : graphCSR[i]) {
-    //             int child = edge.destination + 1;
-    //             if (shortestDist[child - 1] == shortestDist[i] + edge.weight && !cycleCheck[child - 1]) {
-    //                 ssspTree2[parent - 1].push_back(child);
-    //                 cycleCheck[child - 1] = true; 
-    //             }
-    //         }
-    //     }
-    // }
-    // // Print shortestDist
-    // std::cout << "\nShortest Distances:\n";
-    // for (int i = 0; i < numNodes; ++i) {
-    //     if (shortestDist[i] == std::numeric_limits<double>::infinity()) {
-    //         std::cout << "Node " << i + 1 << ": Infinity\n";
-    //     } else {
-    //         std::cout << "Node " << i + 1 << ": " << shortestDist[i] << "\n";
-    //     }
-    // }
+    int numNodes = ssspTree.size();
+    std::vector<std::vector<int>> ssspTree2(numNodes);
+    std::vector<bool> cycleCheck(numNodes, false);
+    for (int i = 0; i < numNodes; ++i) {
+        if (shortestDist[i] != std::numeric_limits<double>::infinity()) {
+            int parent = i + 1;
+            for (const Edge& edge : graphCSR[i]) {
+                int child = edge.destination + 1;
+                if (shortestDist[child - 1] == shortestDist[i] + edge.weight && !cycleCheck[child - 1]) {
+                    ssspTree2[parent - 1].push_back(child);
+                    cycleCheck[child - 1] = true; 
+                }
+            }
+        }
+    }
+    // Print shortestDist
+    std::cout << "\nShortest Distances:\n";
+    for (int i = 0; i < numNodes; ++i) {
+        if (shortestDist[i] == std::numeric_limits<double>::infinity()) {
+            std::cout << "Node " << i + 1 << ": Infinity\n";
+        } else {
+            std::cout << "Node " << i + 1 << ": " << shortestDist[i] << "\n";
+        }
+    }
 
-    // //Print ssspTree
-    // std::cout << "Correct Shortest Path Tree:\n";
-    // for (int i = 0; i < numNodes; ++i) {
-    //     std::cout << "Node " << i + 1 << ": ";
-    //     for (int child : ssspTree2[i]) {
-    //         std::cout << child << " ";
-    //     }
-    //     std::cout << "\n";
-    // }
+    //Print ssspTree
+    std::cout << "Correct Shortest Path Tree:\n";
+    for (int i = 0; i < numNodes; ++i) {
+        std::cout << "Node " << i + 1 << ": ";
+        for (int child : ssspTree2[i]) {
+            std::cout << child << " ";
+        }
+        std::cout << "\n";
+    }
 
 }
 
@@ -613,7 +647,7 @@ int main(int argc, char** argv) {
 
 
     // Print the updated shortest path tree
-    //printShortestPathTree(parentChildSSP);
+    printShortestPathTree(parentChildSSP);
 
     return 0;
 }
