@@ -69,7 +69,14 @@
         "numeric": "cpp",
         "random": "cpp",
         "algorithm": "cpp",
-        "charconv": "cpp"
+        "charconv": "cpp",
+        "__tree": "cpp",
+        "list": "cpp",
+        "map": "cpp",
+        "set": "cpp",
+        "thread": "cpp",
+        "typeindex": "cpp",
+        "unordered_set": "cpp"
     },
     "C_Cpp.errorSquiggles": "disabled"
 }
