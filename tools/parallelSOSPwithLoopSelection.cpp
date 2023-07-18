@@ -5,6 +5,7 @@
 #include <limits>
 #include <chrono>
 #include <omp.h>
+#include <queue>
 
 struct Edge {
     int source;
@@ -14,7 +15,29 @@ struct Edge {
     Edge(int src, int dest, double w) : source(src), destination(dest), weight(w) {}
 };
 
+double find75Percentile(std::vector<int> &data) {
+    if (data.empty()) {
+        throw std::invalid_argument("Cannot find percentile of an empty vector.");
+    }
+
+    // Sort the vector
+    std::sort(data.begin(), data.end());
+
+    // Calculate index (75th percentile)
+    double idx = 0.75 * (data.size() - 1);
+
+    // Calculate the value at the 75th percentile position
+    // Note: We need to account for fractional indices by doing linear interpolation.
+    if (std::floor(idx) == idx) { // If the index is an integer
+        return data[static_cast<int>(idx)];
+    } else { // If the index is a fraction
+        double frac = idx - std::floor(idx); // Fractional part of the index
+        return (1.0 - frac) * data[static_cast<int>(idx)] + frac * data[static_cast<int>(idx) + 1];
+    }
+}
+
 std::vector<std::vector<Edge>> predecessor;
+std::vector<int> predecessorCount;
 bool operator==(const Edge& lhs, const Edge& rhs) {
     return lhs.source == rhs.source && lhs.destination == rhs.destination && lhs.weight == rhs.weight;
 }
@@ -53,10 +76,18 @@ std::vector<std::vector<Edge>> convertToCSR(std::ifstream& inputFile, bool isGra
         if(isGraph)
         {
             predecessor.resize(numCols);
+            predecessorCount.resize(numCols, 0);
             predecessor[col - 1].emplace_back(row, col, value);
+            predecessorCount[col - 1]++;
         }
             
     }
+
+    std::cout << "predecessorCount: ";
+    for (int val : predecessorCount) {
+        std::cout << val << " ";
+    }
+    std::cout << std::endl;
 
     // if (isGraph)
     // {
@@ -186,16 +217,16 @@ void printShortestPathTree(const std::vector<std::pair<int, std::vector<int>>>& 
 }
 
 
-void markSubtreeAffected(std::vector<std::pair<int, std::vector<int>>>& parentChildSSP, std::vector<double>& shortestDist, std::vector<bool>& affectedNodes,std::vector<bool>& affectedDelNodes, int node) {
+void markSubtreeAffected(std::vector<std::pair<int, std::vector<int>>>& parentChildSSP, std::vector<double>& shortestDist, std::vector<bool>& affectedNodes, std::queue<int>& affectedNodesQueue, std::vector<bool>& affectedDelNodes, int node) {
     affectedNodes[node] = true;
+    affectedNodesQueue.push(node);
     affectedDelNodes[node] = false;
     shortestDist[node] = std::numeric_limits<double>::infinity();
 
     for (int child : parentChildSSP[node].second) {
-        markSubtreeAffected(parentChildSSP, shortestDist, affectedNodes, affectedDelNodes,  child);
+        markSubtreeAffected(parentChildSSP, shortestDist, affectedNodes, affectedNodesQueue, affectedDelNodes,  child);
     }
 }
-
 
 std::vector<std::pair<int, std::vector<int>>> convertToParentChildSSP(const std::vector<std::vector<int>>& ssspTree) {
     std::vector<std::pair<int, std::vector<int>>> parentChildSSP(ssspTree.size());
@@ -226,21 +257,30 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
     std::vector<Edge> deletedEdges;
     std::vector<bool> affectedNodes(ssspTree.size(), false);
     std::vector<bool> affectedDelNodes(ssspTree.size(), false);
-
-    omp_set_num_threads(NUM_THREADS);
+    std::queue<int> affectedNodesQueue;
+    int threshold;
 
     // Identify inserted and deleted edges
-    //#pragma omp parallel for
-    for (int i = 0; i < changedEdgesCSR.size(); i++) {
-        const std::vector<Edge>& row = changedEdgesCSR[i];
+    #pragma omp parallel for
+    for (const std::vector<Edge>& row : changedEdgesCSR) {
         for (const Edge& edge : row) {
             if (edge.weight > 0) {
+            #pragma omp critical
+            {
                 insertedEdges.push_back(edge);
+            }
+                
             } else if (edge.weight < 0) {
+            #pragma omp critical
+            {
                 deletedEdges.push_back(edge);
+            }
+                
             }
         }
     }
+
+    
 
     // Print the inserted edges and identify affected nodes
     //std::cout << "Inserted Edges:\n";
@@ -280,6 +320,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             parentList[y+1] = x + 1;
             ssspTree[x].second.push_back(y+1);
             affectedNodes[y] = true; 
+            affectedNodesQueue.push(y);
             
             
         }
@@ -287,6 +328,8 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
     // Print the deleted edges and mark affected nodes
     //std::cout << "Deleted Edges:\n";
+
+    #pragma omp parallel for
     for (const Edge& edge : deletedEdges) {
 
         //Delete the edge from the graph 
@@ -296,10 +339,8 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             break;
         }
         }
-        
-        
 
-       // After deletion from graph, check if the deleted edges belong to ssspTree. 
+        // After deletion from graph, check if the deleted edges belong to ssspTree. 
 
         bool inTree = false;
 
@@ -322,20 +363,28 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             if (it != predecessor[edge.destination].end()) {
 
                 predecessor[edge.destination].erase(it);
+                predecessorCount[edge.destination]--;
                 
             }
         }
+
+        threshold = find75Percentile(predecessorCount);
+        
 
         if (!inTree)
             continue;
 
         
 
-        markSubtreeAffected(ssspTree, shortestDist, affectedNodes, affectedDelNodes, edge.destination);
+        
 
+        markSubtreeAffected(ssspTree, shortestDist, affectedNodes, affectedNodesQueue, affectedDelNodes, edge.destination);
+
+        
 
         //std::cout << "Source: " << edge.source + 1 << " Destination: " << edge.destination + 1 << " Weight: " << edge.weight << "\n";
         affectedNodes[edge.destination] = true;
+        affectedNodesQueue.push(edge.destination);
         affectedDelNodes[edge.destination] = true;
         shortestDist[edge.destination] = std::numeric_limits<double>::infinity();
 
@@ -358,6 +407,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             } 
         }
         int oldParent = parentList[edge.destination + 1];
+        
 
         if (newParentIndex == -1)
         {
@@ -390,7 +440,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
         
         parentList[edge.destination + 1] = newParentIndex + 1; 
 
-    
+        
             
 
     }
@@ -407,82 +457,124 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
     //printShortestPathTree(ssspTree);
 
     
+#pragma omp parallel
+{
+
     bool hasAffectedNodes = true;
     while (hasAffectedNodes) {
+
+
         hasAffectedNodes = false;
 
-#pragma omp parallel for reduction(max: hasAffectedNodes) shared(ssspTree, affectedNodes)
-        for (int v = 0; v < ssspTree.size(); ++v) {
+        // Check for affected nodes and update distances
+        while(!affectedNodesQueue.empty()){
+        //for (int v = 0; v < ssspTree.size(); ++v) {
+            int v = affectedNodesQueue.front();
+            affectedNodesQueue.pop();
             if (affectedNodes[v]) {
-                affectedNodes[v] = false; // Reset affected flag
 
-                for (const Edge& edge : graphCSR[v]) {
+                affectedNodes[v] = false;  // Reset affected flag
+                
+
+                
+                //std::cout<< "Effected nodes source " << v+1;
+                #pragma omp parallel for if(predecessorCount[v] <= threshold)
+                for (const Edge& edge : graphCSR[v] ) {
                     int n = edge.destination;
+                    
+                    //std::cout<< " -> destination"<< n + 1 <<"";
 
                     // for insertion
                     if (shortestDist[n] > shortestDist[v] + edge.weight && shortestDist[v] != std::numeric_limits<double>::infinity()) {
+                        
                         shortestDist[n] = shortestDist[v] + edge.weight;
-
+                        //std::cout<< " :Distance Improved ";
+                        
                         int oldParent = parentList[n + 1];
-                        for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++) {
-                            if (ssspTree[oldParent - 1].second[j] == n + 1) {
+                        //std::cout<< "old parent: " << oldParent;
+                        #pragma omp parallel for if(predecessorCount[v] > threshold)
+                        for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++ )
+                        {
+                            if (ssspTree[oldParent - 1].second[j] == n + 1 )
+                            {
                                 ssspTree[oldParent - 1].second.erase(ssspTree[oldParent - 1].second.begin() + j);
-                                break;
+                                //break;
                             }
                         }
 
-#pragma omp critical
-                        {
-                            parentList[n + 1] = v + 1;
-                            ssspTree[v].second.push_back(n + 1);
-                            affectedNodes[n] = true;
-                            hasAffectedNodes = true;
-                        }
+                        parentList[n + 1] = v + 1; 
+                        //std::cout<< "New parent: " << v + 1 <<"\n";
+
+                        ssspTree[v].second.push_back(n+1); 
+                        affectedNodes[n] = true;  // Mark as affected
+                        affectedNodesQueue.push(n);
+                        hasAffectedNodes = true;  // Set flag for next iteration
+
                     }
-
+                    
                     // for deletion
-                    if (shortestDist[v] == std::numeric_limits<double>::infinity()) {
-                        int newDistance = std::numeric_limits<double>::infinity();
-                        int newParentIndex = -1;
+                    if ( shortestDist[v] == std::numeric_limits<double>::infinity() ){
 
-                        for (int i = 0; i < predecessor[n].size(); i++) {
-                            if (shortestDist[predecessor[n][i].source - 1] + predecessor[n][i].weight < newDistance) {
+                        // find new parent or put the shortest distance to infinity
+
+                        //std::cout<<"\nPredecessor of "<< n + 1 <<" ";
+                        int newDistance = std::numeric_limits<double>::infinity();
+                        int newParentIndex = -1; 
+                        #pragma omp parallel for if(predecessorCount[v] > threshold)
+                        for (int i = 0; i < predecessor[n].size(); i++)
+                        {
+                            if (shortestDist[predecessor[n][i].source - 1] + predecessor[n][i].weight < newDistance)
+                            {
                                 newDistance = shortestDist[predecessor[n][i].source - 1] + predecessor[n][i].weight;
                                 newParentIndex = predecessor[n][i].source - 1;
-                            }
+                            } 
                         }
-
                         int oldParent = parentList[n + 1];
 
-                        if (newParentIndex == -1) {
-                            parentList[n + 1] = -1;
+                        if (newParentIndex == -1)
+                        {
+                            parentList[n + 1] = -1; 
                             shortestDist[n] = std::numeric_limits<double>::infinity();
-                        } else {
-                            ssspTree[newParentIndex].first = newParentIndex + 1;
-                            shortestDist[n] = newDistance;
-                            ssspTree[newParentIndex].second.push_back(n + 1);
+                        
+                        }
+                    
+                        else 
+                        {
+                            //std::cout<<"\nNew parent:"<< newParentIndex + 1 <<"\n";
+                             
+                            ssspTree[newParentIndex].first = newParentIndex + 1; 
+                            shortestDist[n] = newDistance; 
+                            ssspTree[newParentIndex].second.push_back(n+1);      
                         }
 
-                        for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++) {
-                            if (ssspTree[oldParent - 1].second[j] == n + 1) {
+                        // remove child from the parent list
+                        
+                        
+                        //std::cout<< "old parent: " << oldParent;
+                        #pragma omp parallel for if(predecessorCount[v] > threshold)
+                        for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++ )
+                        {
+                            if (ssspTree[oldParent - 1].second[j] == n + 1 )
+                            {
                                 ssspTree[oldParent - 1].second.erase(ssspTree[oldParent - 1].second.begin() + j);
-                                break;
+                                
+                                //break;
                             }
                         }
-
-#pragma omp critical
-                        {
-                            parentList[n + 1] = newParentIndex + 1;
-                            affectedNodes[n] = true;
-                            hasAffectedNodes = true;
-                        }
+                        parentList[n + 1] = newParentIndex + 1;  
+                        
+                        affectedNodes[n] = true;  // Mark as affected
+                        affectedNodesQueue.push(n);
+                        hasAffectedNodes = true;
                     }
                 }
             }
         }
     }
+}
 
     
+
 
     
 
