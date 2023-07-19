@@ -59,3 +59,6 @@ clang++ -std=c++11 -Xpreprocessor -fopenmp -lomp parallelSOSP.cpp -o parallelSOS
 
 # Command 5 to run parallelSOSPwithLoopSelection code parallelSOSPwithLoopSelection.cpp
 clang++ -std=c++11 -Xpreprocessor -fopenmp -lomp parallelSOSPwithLoopSelection.cpp -o parallelSOSPwithLoopSelection && ./parallelSOSPwithLoopSelection -g $inputGraph -c changeEdges.mtx -s $source
+
+# Command 6 to run parallelSOSPwithLoopSelectionWithoutCritical.cpp
+clang++ -std=c++11 -Xpreprocessor -fopenmp -lomp parallelSOSPwithLoopSelectionWithoutCritical.cpp -o parallelSOSPwithLoopSelectionWithoutCritical && ./parallelSOSPwithLoopSelectionWithoutCritical -g $inputGraph -c changeEdges.mtx -s $source

@@ -6,6 +6,9 @@
 #include <chrono>
 #include <omp.h>
 #include <queue>
+#include <unordered_map>
+#include <set>
+using namespace std;
 
 struct Edge {
     int source;
@@ -13,10 +16,11 @@ struct Edge {
     double weight;
 
     Edge(int src, int dest, double w) : source(src), destination(dest), weight(w) {}
+
     // operator < needed to keep edges in the set
-    bool operator<(const Edge& other) const {
-        return this->weight < other.weight;
-    }
+    // bool operator<(const Edge& other) const {
+    //     return this->weight < other.weight;
+    // }
 };
 
 double find75Percentile(std::vector<int> &data) {
@@ -264,6 +268,9 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
     std::queue<int> affectedNodesQueue;
     int threshold;
 
+    std::unordered_map<int, std::vector<Edge>> insertedEdgeMap;
+    std::unordered_map<int, std::vector<Edge>> deletedEdgeMap;
+
     // Identify inserted and deleted edges
     #pragma omp parallel for
     for (const std::vector<Edge>& row : changedEdgesCSR) {
@@ -272,105 +279,116 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             #pragma omp critical
             {
                 insertedEdges.push_back(edge);
+                insertedEdgeMap[edge.destination].push_back(edge);
             }
                 
             } else if (edge.weight < 0) {
             #pragma omp critical
             {
                 deletedEdges.push_back(edge);
+                deletedEdgeMap[edge.destination].push_back(edge);
             }
                 
             }
         }
     }
+
+    // for (const auto& pair : insertedEdgeMap) {
+    //     std::cout << "Edges ending at node " << pair.first << ":\n";
+    //     for (const auto& edge : pair.second) {
+    //         std::cout << "Start: " << edge.source << ", End: " << edge.destination << ", Weight: " << edge.weight << "\n";
+    //     }
+    // }
 
     
 
     // Print the inserted edges and identify affected nodes
     //std::cout << "Inserted Edges:\n";
     #pragma omp parallel for
-    for (const Edge& edge : insertedEdges) {
-        //std::cout << "Source: " << edge.source + 1 << " Destination: " << edge.destination + 1 << " Weight: " << edge.weight << "\n";
-        
-        int x,y; 
-        // if(shortestDist[edge.source] > shortestDist[edge.destination]){
-        //     x = edge.destination; 
-        //     y = edge.source;
-        // }  
-        // else{
-        //     x = edge.source; 
-        //     y = edge.destination;
-        // }
-        x = edge.source;
-        y = edge.destination;
-        if (shortestDist[y] > shortestDist[x] + edge.weight) {
-            shortestDist[y] = shortestDist[x] + edge.weight;
+    for (int i = 0; i < insertedEdgeMap.size(); i++)
+        for (const Edge& edge : insertedEdgeMap[i]) {
+            //std::cout << "Source: " << edge.source + 1 << " Destination: " << edge.destination + 1 << " Weight: " << edge.weight << "\n";
             
-            // Add the new edge to the graph
-            graphCSR[x].push_back(Edge(x,y,edge.weight));
-
-            int oldParent = parentList[y + 1];
-
-            for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++ )
-            {
+            int x,y; 
+            // if(shortestDist[edge.source] > shortestDist[edge.destination]){
+            //     x = edge.destination; 
+            //     y = edge.source;
+            // }  
+            // else{
+            //     x = edge.source; 
+            //     y = edge.destination;
+            // }
+            x = edge.source;
+            y = edge.destination;
+            if (shortestDist[y] > shortestDist[x] + edge.weight) {
+                shortestDist[y] = shortestDist[x] + edge.weight;
                 
-                if (ssspTree[oldParent - 1].second[j] == y + 1 )
+                // Add the new edge to the graph
+                graphCSR[x].push_back(Edge(x,y,edge.weight));
+
+                int oldParent = parentList[y + 1];
+
+                for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++ )
                 {
-                    ssspTree[oldParent - 1].second.erase(ssspTree[oldParent - 1].second.begin() + j);
                     
-                    break;
+                    if (ssspTree[oldParent - 1].second[j] == y + 1 )
+                    {
+                        ssspTree[oldParent - 1].second.erase(ssspTree[oldParent - 1].second.begin() + j);
+                        
+                        break;
+                    }
                 }
+                parentList[y+1] = x + 1;
+                ssspTree[x].second.push_back(y+1);
+                affectedNodes[y] = true; 
+                affectedNodesQueue.push(y);
+                
+                
             }
-            parentList[y+1] = x + 1;
-            ssspTree[x].second.push_back(y+1);
-            affectedNodes[y] = true; 
-            affectedNodesQueue.push(y);
-            
-            
         }
-    }
 
     // Print the deleted edges and mark affected nodes
     //std::cout << "Deleted Edges:\n";
 
     #pragma omp parallel for
-    for (const Edge& edge : deletedEdges) {
+    for (int i = 0; i < insertedEdgeMap.size(); i++)
+        for (const Edge& edge : deletedEdges) {
 
-        //Delete the edge from the graph 
-        for (int i = 0; i < graphCSR[edge.source].size(); ++i) {
-        if (graphCSR[edge.source][i].source == edge.source && graphCSR[edge.source][i].destination == edge.destination) {
-            graphCSR[edge.source].erase(graphCSR[edge.source].begin() + i);
-            break;
-        }
-        }
-
-        // After deletion from graph, check if the deleted edges belong to ssspTree. 
-
-        bool inTree = false;
-
-       // Delete the element from the predecessor as well
-
-        for (auto& preEdge : predecessor[edge.destination]) 
-        if (edge.source + 1 == preEdge.source) {
-            
-            // Find the iterator pointing to the element
-            auto it = std::find(predecessor[edge.destination].begin(), predecessor[edge.destination].end(), preEdge);
-            
-            for (int i = 0; i < ssspTree[edge.source].second.size() ; i++)
-            {
-                if (ssspTree[edge.source].second[i] == edge.destination + 1)
-                //std::cout<<"Found in tree"<<std::endl;
-                inTree = true;
-
+            //Delete the edge from the graph 
+            for (int i = 0; i < graphCSR[edge.source].size(); ++i) {
+            if (graphCSR[edge.source][i].source == edge.source && graphCSR[edge.source][i].destination == edge.destination) {
+                graphCSR[edge.source].erase(graphCSR[edge.source].begin() + i);
+                break;
+            }
             }
 
-            if (it != predecessor[edge.destination].end()) {
+            // After deletion from graph, check if the deleted edges belong to ssspTree. 
 
-                predecessor[edge.destination].erase(it);
-                predecessorCount[edge.destination]--;
+            bool inTree = false;
+
+        // Delete the element from the predecessor as well
+
+            for (auto& preEdge : predecessor[edge.destination]) 
+            if (edge.source + 1 == preEdge.source) {
                 
+                // Find the iterator pointing to the element
+                auto it = std::find(predecessor[edge.destination].begin(), predecessor[edge.destination].end(), preEdge);
+                
+                for (int i = 0; i < ssspTree[edge.source].second.size() ; i++)
+                {
+                    if (ssspTree[edge.source].second[i] == edge.destination + 1)
+                    //std::cout<<"Found in tree"<<std::endl;
+                    inTree = true;
+
+                }
+
+                if (it != predecessor[edge.destination].end()) {
+
+                    predecessor[edge.destination].erase(it);
+                    predecessorCount[edge.destination]--;
+                    
+                }
             }
-        }
 
         threshold = find75Percentile(predecessorCount);
         
