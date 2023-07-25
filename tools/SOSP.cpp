@@ -481,15 +481,15 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
                 affectedNodes[v] = false;  // Reset affected flag
                 
-
+                if (++infinityLoopBreaker == graphCSR.size())
+                    break;  
                 
                 //std::cout<< "Effected nodes source " << v+1;
 
                 for (const Edge& edge : graphCSR[v] ) {
                     int n = edge.destination;
         
-                    if (++infinityLoopBreaker == graphCSR.size())
-                        break;
+                    
                     
                     //std::cout<< " -> destination"<< n + 1 <<"";
 
