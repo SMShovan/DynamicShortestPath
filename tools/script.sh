@@ -37,11 +37,11 @@
 
 
 
-vertices=1000
-edges=1500
+vertices=6
+edges=10
 source='1'
-insertedEdges='0'
-deletedEdges='0'
+insertedEdges='2'
+deletedEdges='2'
 inputGraph="weightedGraph.mtx"
 
 
