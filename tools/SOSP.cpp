@@ -113,11 +113,18 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
                 minDist = shortestDist[j];
                 minDistNode = j;
             }
+            
         }
-        //std::cout<<"Okay till: "<< i <<std::endl;
+        
 
         // Mark the minimum distance node as visited
+
+        if (minDistNode == -1) {
+            break;
+        }
+
         visited[minDistNode] = true;
+        
 
         // Update the distances of the neighboring nodes
         for (const Edge& edge : graphCSR[minDistNode]) {
@@ -129,7 +136,7 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
         }
     }
 
-    //std::cout<<"Still okay"<<std::endl;
+    std::cout<<"Still okay"<<std::endl;
     
 
     
