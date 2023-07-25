@@ -278,24 +278,30 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
     // Identify inserted and deleted edges
     #pragma omp parallel for
     for (const std::vector<Edge>& row : changedEdgesCSR) {
+        std::vector<Edge> privateInsertedEdges;
+        std::vector<Edge> privateDeletedEdges;
+
         for (const Edge& edge : row) {
             if (edge.weight > 0) {
-            #pragma omp critical
-            {
-                insertedEdges.push_back(edge);
-                insertedEdgeMap[edge.destination].push_back(edge);
-            }
-                
+                privateInsertedEdges.push_back(edge);
             } else if (edge.weight < 0) {
-            #pragma omp critical
-            {
-                deletedEdges.push_back(edge);
-                deletedEdgeMap[edge.destination].push_back(edge);
-            }
-                
+                privateDeletedEdges.push_back(edge);
             }
         }
+
+        #pragma omp critical
+        {
+            // Merge privateInsertedEdges into insertedEdges
+            insertedEdges.insert(insertedEdges.end(), privateInsertedEdges.begin(), privateInsertedEdges.end());
+
+            // Merge privateDeletedEdges into deletedEdges
+            deletedEdges.insert(deletedEdges.end(), privateDeletedEdges.begin(), privateDeletedEdges.end());
+        }
     }
+
+    // At this point, insertedEdges and deletedEdges are fully populated and can be used further as needed.
+
+        
 
     // for (const auto& pair : insertedEdgeMap) {
     //     std::cout << "Edges ending at node " << pair.first << ":\n";
@@ -308,8 +314,9 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
     // Print the inserted edges and identify affected nodes
     //std::cout << "Inserted Edges:\n";
-    #pragma omp parallel for
-    for (int i = 0; i < insertedEdgeMap.size(); i++)
+    
+    //#pragma omp parallel for
+    for (int i = 0; i < insertedEdgeMap.size(); i++) 
         for (const Edge& edge : insertedEdgeMap[i]) {
             //std::cout << "Source: " << edge.source + 1 << " Destination: " << edge.destination + 1 << " Weight: " << edge.weight << "\n";
             
@@ -351,11 +358,13 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             }
         }
 
+    
+
     // Print the deleted edges and mark affected nodes
     //std::cout << "Deleted Edges:\n";
 
     #pragma omp parallel for
-    for (int i = 0; i < insertedEdgeMap.size(); i++)
+    for (int i = 0; i < deletedEdgeMap.size(); i++)
         for (const Edge& edge : deletedEdges) {
 
             //Delete the edge from the graph 
@@ -481,9 +490,9 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
     // }
 
     //printShortestPathTree(ssspTree);
-
+std::cout<< "Till here OK"<< std::endl;
     
-#pragma omp parallel
+//#pragma omp parallel
 {
 
     bool hasAffectedNodes = true;
@@ -504,7 +513,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
                 
                 //std::cout<< "Effected nodes source " << v+1;
-                #pragma omp parallel for if(predecessorCount[v] <= threshold)
+                //#pragma omp parallel for if(predecessorCount[v] <= threshold)
                 for (const Edge& edge : graphCSR[v] ) {
                     int n = edge.destination;
                     
@@ -518,7 +527,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
                         
                         int oldParent = parentList[n + 1];
                         //std::cout<< "old parent: " << oldParent;
-                        #pragma omp parallel for if(predecessorCount[v] > threshold)
+                        //#pragma omp parallel for if(predecessorCount[v] > threshold)
                         for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++ )
                         {
                             if (ssspTree[oldParent - 1].second[j] == n + 1 )
@@ -643,6 +652,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
 
 int main(int argc, char** argv) {
+    std::cout<< "Parallel code started"<< std::endl;
     // Check the command-line arguments
     if (argc < 4) {
         std::cerr << "Usage: ./program -g <graph_file> -c <changed_edges_file> -s <source_node>\n";
@@ -677,15 +687,22 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    std::cout<< "Reading Input Graph "<< std::endl;
+
+
     // Convert the input graph to CSR format
     std::vector<std::vector<Edge>> graphCSR = convertToCSR(graphInputFile, true);
     graphInputFile.close();
+
+    std::cout<< "Dijkstra algorithm started"<< std::endl;
 
     // Find the initial shortest path tree using Dijkstra's algorithm
     std::vector<double> shortestDist(graphCSR.size(), std::numeric_limits<double>::infinity());
     shortestDist[sourceNode - 1] = 0;
     std::vector<int> parent(graphCSR.size() + 1, -1);
     std::vector<std::vector<int>> ssspTree = dijkstra(graphCSR, sourceNode, shortestDist, parent);
+
+    std::cout<< "Dijkstra algorithm finished"<< std::endl;
 
     // Convert the ssspTree to parent-child relationship data structure
     std::vector<std::pair<int, std::vector<int>>> parentChildSSP = convertToParentChildSSP(ssspTree);
@@ -704,12 +721,15 @@ int main(int argc, char** argv) {
     std::vector<std::vector<Edge>> changedEdgesCSR = convertToCSR(changedEdgesInputFile, false);
     changedEdgesInputFile.close();
 
+    std::cout<< "Update Path started"<< std::endl;
+
     auto start_time = std::chrono::high_resolution_clock::now();
 
     // Update the shortest path tree based on the changed edges
     updateShortestPath(parentChildSSP, graphCSR, changedEdgesCSR, shortestDist, parent);
 
     auto end_time = std::chrono::high_resolution_clock::now();
+    std::cout<< "Update path ended"<< std::endl;
 
     // Calculate the elapsed time
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
