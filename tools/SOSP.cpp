@@ -468,8 +468,9 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
         
 
         hasAffectedNodes = false;
+
+        int infinityLoopBreaker = 0; 
         
-std::cout<< "Good till here: "<< std::endl;
         // Check for affected nodes and update distances
         while(!affectedNodesQueue.empty()){
         //for (int v = 0; v < ssspTree.size(); ++v) {
@@ -487,7 +488,8 @@ std::cout<< "Good till here: "<< std::endl;
                 for (const Edge& edge : graphCSR[v] ) {
                     int n = edge.destination;
         
-                    
+                    if (++infinityLoopBreaker == graphCSR.size())
+                        break;
                     
                     //std::cout<< " -> destination"<< n + 1 <<"";
 
