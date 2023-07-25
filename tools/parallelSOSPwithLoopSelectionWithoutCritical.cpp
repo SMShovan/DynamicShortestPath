@@ -231,7 +231,7 @@ void printShortestPathTree(const std::vector<std::pair<int, std::vector<int>>>& 
 void markSubtreeAffected(std::vector<std::pair<int, std::vector<int>>>& parentChildSSP, std::vector<double>& shortestDist, std::vector<bool>& affectedNodes, std::queue<int>& affectedNodesQueue, std::vector<bool>& affectedDelNodes, int node) {
     affectedNodes[node] = true;
     affectedNodesQueue.push(node);
-    affectedDelNodes[node] = false;
+    affectedDelNodes[node] = true;
     shortestDist[node] = std::numeric_limits<double>::infinity();
 
     for (int child : parentChildSSP[node].second) {
@@ -299,8 +299,6 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
         }
     }
 
-    // At this point, insertedEdges and deletedEdges are fully populated and can be used further as needed.
-
         
 
     // for (const auto& pair : insertedEdgeMap) {
@@ -315,48 +313,106 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
     // Print the inserted edges and identify affected nodes
     //std::cout << "Inserted Edges:\n";
     
-    //#pragma omp parallel for
-    for (int i = 0; i < insertedEdgeMap.size(); i++) 
-        for (const Edge& edge : insertedEdgeMap[i]) {
-            //std::cout << "Source: " << edge.source + 1 << " Destination: " << edge.destination + 1 << " Weight: " << edge.weight << "\n";
+    // #pragma omp parallel for
+    // for (int i = 0; i < insertedEdgeMap.size(); i++) 
+    //     for (const Edge& edge : insertedEdgeMap[i]) {
+    //         //std::cout << "Source: " << edge.source + 1 << " Destination: " << edge.destination + 1 << " Weight: " << edge.weight << "\n";
             
-            int x,y; 
-            // if(shortestDist[edge.source] > shortestDist[edge.destination]){
-            //     x = edge.destination; 
-            //     y = edge.source;
-            // }  
-            // else{
-            //     x = edge.source; 
-            //     y = edge.destination;
-            // }
+    //         int x,y; 
+    //         // if(shortestDist[edge.source] > shortestDist[edge.destination]){
+    //         //     x = edge.destination; 
+    //         //     y = edge.source;
+    //         // }  
+    //         // else{
+    //         //     x = edge.source; 
+    //         //     y = edge.destination;
+    //         // }
+    //         x = edge.source;
+    //         y = edge.destination;
+    //         if (shortestDist[y] > shortestDist[x] + edge.weight) {
+    //             shortestDist[y] = shortestDist[x] + edge.weight;
+                
+    //             // Add the new edge to the graph
+    //             graphCSR[x].push_back(Edge(x,y,edge.weight));
+
+    //             int oldParent = parentList[y + 1];
+
+    //             for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++ )
+    //             {
+                    
+    //                 if (ssspTree[oldParent - 1].second[j] == y + 1 )
+    //                 {
+    //                     ssspTree[oldParent - 1].second.erase(ssspTree[oldParent - 1].second.begin() + j);
+                        
+    //                     break;
+    //                 }
+    //             }
+    //             parentList[y+1] = x + 1;
+    //             ssspTree[x].second.push_back(y+1);
+    //             affectedNodes[y] = true; 
+    //             affectedNodesQueue.push(y);
+                
+                
+    //         }
+    //     }
+
+    #pragma omp parallel for
+    for (int i = 0; i < insertedEdgeMap.size(); i++) {
+        #pragma omp parallel for
+        for (int j = 0; j < insertedEdgeMap[i].size(); j++) {
+            const Edge& edge = insertedEdgeMap[i][j];
+
+            int x, y;
             x = edge.source;
             y = edge.destination;
-            if (shortestDist[y] > shortestDist[x] + edge.weight) {
-                shortestDist[y] = shortestDist[x] + edge.weight;
-                
-                // Add the new edge to the graph
-                graphCSR[x].push_back(Edge(x,y,edge.weight));
+
+            int newShortestDist = shortestDist[x] + edge.weight;
+
+            if (newShortestDist < shortestDist[y]) {
+                // Using atomic operation to update shortestDist[y] without a critical section
+                #pragma omp atomic write
+                shortestDist[y] = newShortestDist;
+
+                // Add the new edge to the graph (no critical section needed)
+                #pragma omp critical
+                graphCSR[x].push_back(Edge(x, y, edge.weight));
 
                 int oldParent = parentList[y + 1];
 
-                for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++ )
+                // Task-level parallelism for erasing ssspTree elements
+                #pragma omp task
                 {
-                    
-                    if (ssspTree[oldParent - 1].second[j] == y + 1 )
-                    {
-                        ssspTree[oldParent - 1].second.erase(ssspTree[oldParent - 1].second.begin() + j);
-                        
-                        break;
+                    auto it = std::find(ssspTree[oldParent - 1].second.begin(), ssspTree[oldParent - 1].second.end(), y + 1);
+                    if (it != ssspTree[oldParent - 1].second.end()) {
+                        // Using atomic operation to erase ssspTree element without a critical section
+                        #pragma omp atomic write
+                        *it = -1; // Replace the value with a special marker value (-1) for later removal
                     }
                 }
-                parentList[y+1] = x + 1;
-                ssspTree[x].second.push_back(y+1);
-                affectedNodes[y] = true; 
-                affectedNodesQueue.push(y);
-                
-                
+
+                parentList[y + 1] = x + 1;
+
+                // Task-level parallelism for adding ssspTree elements
+                #pragma omp task
+                {
+                    #pragma omp critical
+                    ssspTree[x].second.push_back(y + 1);
+                }
+
+                // Task-level parallelism for updating affectedNodes and affectedNodesQueue
+                #pragma omp task
+                {
+                    #pragma omp critical
+                    {
+                        affectedNodes[y] = true;
+                        affectedNodesQueue.push(y);
+                    }
+                }
             }
         }
+    }
+    #pragma omp taskwait
+
 
     
 
@@ -490,9 +546,8 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
     // }
 
     //printShortestPathTree(ssspTree);
-std::cout<< "Till here OK"<< std::endl;
     
-//#pragma omp parallel
+#pragma omp parallel
 {
 
     bool hasAffectedNodes = true;
@@ -513,7 +568,7 @@ std::cout<< "Till here OK"<< std::endl;
 
                 
                 //std::cout<< "Effected nodes source " << v+1;
-                //#pragma omp parallel for if(predecessorCount[v] <= threshold)
+                #pragma omp parallel for if(predecessorCount[v] <= threshold)
                 for (const Edge& edge : graphCSR[v] ) {
                     int n = edge.destination;
                     
@@ -527,7 +582,7 @@ std::cout<< "Till here OK"<< std::endl;
                         
                         int oldParent = parentList[n + 1];
                         //std::cout<< "old parent: " << oldParent;
-                        //#pragma omp parallel for if(predecessorCount[v] > threshold)
+                        #pragma omp parallel for if(predecessorCount[v] > threshold)
                         for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++ )
                         {
                             if (ssspTree[oldParent - 1].second[j] == n + 1 )
@@ -564,6 +619,8 @@ std::cout<< "Till here OK"<< std::endl;
                                 newParentIndex = predecessor[n][i].source - 1;
                             } 
                         }
+                        if ( n + 1 == 1)
+                            continue;
                         int oldParent = parentList[n + 1];
 
                         if (newParentIndex == -1)

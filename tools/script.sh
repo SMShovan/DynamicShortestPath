@@ -37,11 +37,11 @@
 
 
 
-vertices=10000
-edges=15000
+vertices=1000
+edges=1500
 source='1'
-insertedEdges='15000'
-deletedEdges='0'
+insertedEdges='0'
+deletedEdges='500'
 inputGraph="weightedGraph.mtx"
 
 
@@ -53,7 +53,7 @@ cd /Users/smshovan/Documents/Codes/candy/PaRMAT-master/Release && make && ./PaRM
 clang++ -std=c++17 randomChangedEdges.cpp -o randomChangedEdges && ./randomChangedEdges -i $insertedEdges -d $deletedEdges -g $inputGraph -o changeEdges.mtx
 
 # # Command 3 to run sosp code. g for input graph, c for changed edges, s for source. 
-#clang++ -std=c++17 SOSP.cpp -o program && ./program -g $inputGraph -c changeEdges.mtx -s $source
+clang++ -std=c++17 SOSP.cpp -o program && ./program -g $inputGraph -c changeEdges.mtx -s $source
 
 # # Command 4 to run parallelSOSP code, 
 # clang++ -std=c++11 -Xpreprocessor -fopenmp -lomp parallelSOSP.cpp -o parallelSOSP && ./parallelSOSP -g $inputGraph -c changeEdges.mtx -s $source
@@ -62,4 +62,4 @@ clang++ -std=c++17 randomChangedEdges.cpp -o randomChangedEdges && ./randomChang
 # clang++ -std=c++11 -Xpreprocessor -fopenmp -lomp parallelSOSPwithLoopSelection.cpp -o parallelSOSPwithLoopSelection && ./parallelSOSPwithLoopSelection -g $inputGraph -c changeEdges.mtx -s $source
 
 # # Command 6 to run parallelSOSPwithLoopSelectionWithoutCritical.cpp
- clang++ -std=c++11 -Xpreprocessor -fopenmp -lomp parallelSOSPwithLoopSelectionWithoutCritical.cpp -o parallelSOSPwithLoopSelectionWithoutCritical && ./parallelSOSPwithLoopSelectionWithoutCritical -g $inputGraph -c changeEdges.mtx -s $source
+#clang++ -std=c++11 -Xpreprocessor -fopenmp -lomp parallelSOSPwithLoopSelectionWithoutCritical.cpp -o parallelSOSPwithLoopSelectionWithoutCritical && ./parallelSOSPwithLoopSelectionWithoutCritical -g $inputGraph -c changeEdges.mtx -s $source
