@@ -136,7 +136,7 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
         }
     }
 
-    std::cout<<"Still okay"<<std::endl;
+    //std::cout<<"Still okay"<<std::endl;
     
 
     

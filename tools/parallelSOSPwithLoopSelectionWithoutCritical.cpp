@@ -136,6 +136,9 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
         }
 
         // Mark the minimum distance node as visited
+        if (minDistNode == -1) {
+            break;
+        }
         visited[minDistNode] = true;
 
         // Update the distances of the neighboring nodes
@@ -232,7 +235,8 @@ void markSubtreeAffected(std::vector<std::pair<int, std::vector<int>>>& parentCh
     shortestDist[node] = std::numeric_limits<double>::infinity();
 
     for (int child : parentChildSSP[node].second) {
-        markSubtreeAffected(parentChildSSP, shortestDist, affectedNodes, affectedNodesQueue, affectedDelNodes,  child);
+        if( !affectedDelNodes[child])
+            markSubtreeAffected(parentChildSSP, shortestDist, affectedNodes, affectedNodesQueue, affectedDelNodes,  child);
     }
 }
 
