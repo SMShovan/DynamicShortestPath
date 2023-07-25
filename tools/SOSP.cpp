@@ -101,6 +101,8 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
     // Set the distance of the source node to itself as 0
     shortestDist[sourceNode - 1] = 0;
 
+    
+    
     // Dijkstra's algorithm
     for (int i = 0; i < numNodes - 1; ++i) {
         // Find the node with the minimum distance among the unvisited nodes
@@ -112,6 +114,7 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
                 minDistNode = j;
             }
         }
+        //std::cout<<"Okay till: "<< i <<std::endl;
 
         // Mark the minimum distance node as visited
         visited[minDistNode] = true;
@@ -126,6 +129,13 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
         }
     }
 
+    //std::cout<<"Still okay"<<std::endl;
+    
+
+    
+
+    
+    
     // Build the shortest path tree based on the shortest distances
     std::vector<std::vector<int>> ssspTree(numNodes);
     std::vector<bool> cycleCheck (numNodes, false);
@@ -143,6 +153,8 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
         }
     }
 
+    
+    
     
 
     // // Print shortestDist
@@ -172,6 +184,7 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
     // }
 
     return ssspTree;
+    
 }
 
 
@@ -628,10 +641,10 @@ int main(int argc, char** argv) {
 
     // Find the initial shortest path tree using Dijkstra's algorithm
     std::vector<double> shortestDist(graphCSR.size(), std::numeric_limits<double>::infinity());
-
     
     shortestDist[sourceNode - 1] = 0;
     std::vector<int> parent(graphCSR.size() + 1, -1);
+    
     std::vector<std::vector<int>> ssspTree = dijkstra(graphCSR, sourceNode, shortestDist, parent);
 
     std::cout<<"Dijkstra finished"<<std::endl;
