@@ -37,11 +37,11 @@
 
 
 
-vertices=1000
-edges=1500
+vertices=100000
+edges=150000
 source='1'
-insertedEdges='0'
-deletedEdges='500'
+insertedEdges='50000'
+deletedEdges='50000'
 inputGraph="weightedGraph.mtx"
 
 
@@ -62,4 +62,4 @@ clang++ -std=c++17 SOSP.cpp -o program && ./program -g $inputGraph -c changeEdge
 # clang++ -std=c++11 -Xpreprocessor -fopenmp -lomp parallelSOSPwithLoopSelection.cpp -o parallelSOSPwithLoopSelection && ./parallelSOSPwithLoopSelection -g $inputGraph -c changeEdges.mtx -s $source
 
 # # Command 6 to run parallelSOSPwithLoopSelectionWithoutCritical.cpp
-#clang++ -std=c++11 -Xpreprocessor -fopenmp -lomp parallelSOSPwithLoopSelectionWithoutCritical.cpp -o parallelSOSPwithLoopSelectionWithoutCritical && ./parallelSOSPwithLoopSelectionWithoutCritical -g $inputGraph -c changeEdges.mtx -s $source
+clang++ -std=c++11 -Xpreprocessor -fopenmp -lomp parallelSOSPwithLoopSelectionWithoutCritical.cpp -o parallelSOSPwithLoopSelectionWithoutCritical && ./parallelSOSPwithLoopSelectionWithoutCritical -g $inputGraph -c changeEdges.mtx -s $source

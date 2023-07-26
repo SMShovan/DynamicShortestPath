@@ -234,6 +234,7 @@ void markSubtreeAffected(std::vector<std::pair<int, std::vector<int>>>& parentCh
     affectedDelNodes[node] = true;
     shortestDist[node] = std::numeric_limits<double>::infinity();
 
+    #pragma omp parallel for
     for (int child : parentChildSSP[node].second) {
         if( !affectedDelNodes[child])
             markSubtreeAffected(parentChildSSP, shortestDist, affectedNodes, affectedNodesQueue, affectedDelNodes,  child);
