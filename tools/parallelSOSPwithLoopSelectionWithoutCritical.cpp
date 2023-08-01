@@ -9,6 +9,8 @@
 #include <unordered_map>
 #include <set>
 #include <algorithm>
+#include <cmath>
+
 using namespace std;
 
 struct Edge {
@@ -236,9 +238,11 @@ void markSubtreeAffected(std::vector<std::pair<int, std::vector<int>>>& parentCh
     shortestDist[node] = std::numeric_limits<double>::infinity();
 
     #pragma omp parallel for
-    for (int child : parentChildSSP[node].second) {
-        if( !affectedDelNodes[child])
-            markSubtreeAffected(parentChildSSP, shortestDist, affectedNodes, affectedNodesQueue, affectedDelNodes,  child);
+    for (size_t i = 0; i < parentChildSSP[node].second.size(); ++i) {
+        int child = parentChildSSP[node].second[i];
+        if (!affectedDelNodes[child]) {
+            markSubtreeAffected(parentChildSSP, shortestDist, affectedNodes, affectedNodesQueue, affectedDelNodes, child);
+        }
     }
 }
 
@@ -279,11 +283,13 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
     // Identify inserted and deleted edges
     #pragma omp parallel for
-    for (auto& row : changedEdgesCSR) {
+    for (size_t i = 0; i < changedEdgesCSR.size(); ++i) {
         std::vector<Edge> privateInsertedEdges;
         std::vector<Edge> privateDeletedEdges;
 
-        for (const Edge& edge : row) {
+        const std::vector<Edge>& row = changedEdgesCSR[i];
+        for (size_t j = 0; j < row.size(); ++j) {
+            const Edge& edge = row[j];
             if (edge.weight > 0) {
                 privateInsertedEdges.push_back(edge);
             } else if (edge.weight < 0) {
@@ -573,92 +579,60 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
                 
                 //std::cout<< "Effected nodes source " << v+1;
                 #pragma omp parallel for if(predecessorCount[v] <= threshold)
-                for (const Edge& edge : graphCSR[v] ) {
+                for (size_t i = 0; i < graphCSR[v].size(); ++i) {
+                    const Edge& edge = graphCSR[v][i];
                     int n = edge.destination;
-                    
-                    //std::cout<< " -> destination"<< n + 1 <<"";
 
                     // for insertion
                     if (shortestDist[n] > shortestDist[v] + edge.weight && shortestDist[v] != std::numeric_limits<double>::infinity()) {
-                        
                         shortestDist[n] = shortestDist[v] + edge.weight;
-                        //std::cout<< " :Distance Improved ";
-                        
+
                         int oldParent = parentList[n + 1];
-                        //std::cout<< "old parent: " << oldParent;
                         #pragma omp parallel for if(predecessorCount[v] > threshold)
-                        for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++ )
-                        {
-                            if (ssspTree[oldParent - 1].second[j] == n + 1 )
-                            {
+                        for (size_t j = 0; j < ssspTree[oldParent - 1].second.size(); j++) {
+                            if (ssspTree[oldParent - 1].second[j] == n + 1) {
                                 ssspTree[oldParent - 1].second.erase(ssspTree[oldParent - 1].second.begin() + j);
-                                //break;
                             }
                         }
 
-                        parentList[n + 1] = v + 1; 
-                        //std::cout<< "New parent: " << v + 1 <<"\n";
-
-                        ssspTree[v].second.push_back(n+1); 
+                        parentList[n + 1] = v + 1;
+                        ssspTree[v].second.push_back(n + 1);
                         affectedNodes[n] = true;  // Mark as affected
                         affectedNodesQueue.push(n);
                         hasAffectedNodes = true;  // Set flag for next iteration
-
                     }
-                    
+
                     // for deletion
-                    if ( shortestDist[v] == std::numeric_limits<double>::infinity() ){
-
-                        // find new parent or put the shortest distance to infinity
-
-                        //std::cout<<"\nPredecessor of "<< n + 1 <<" ";
+                    if (shortestDist[v] == std::numeric_limits<double>::infinity()) {
                         int newDistance = std::numeric_limits<double>::infinity();
-                        int newParentIndex = -1; 
+                        int newParentIndex = -1;
                         #pragma omp parallel for if(predecessorCount[v] > threshold)
-                        for (int i = 0; i < predecessor[n].size(); i++)
-                        {
-                            if (shortestDist[predecessor[n][i].source - 1] + predecessor[n][i].weight < newDistance)
-                            {
+                        for (size_t i = 0; i < predecessor[n].size(); i++) {
+                            if (shortestDist[predecessor[n][i].source - 1] + predecessor[n][i].weight < newDistance) {
                                 newDistance = shortestDist[predecessor[n][i].source - 1] + predecessor[n][i].weight;
                                 newParentIndex = predecessor[n][i].source - 1;
-                            } 
+                            }
                         }
-                        if ( n + 1 == 1)
+                        if (n + 1 == 1)
                             continue;
                         int oldParent = parentList[n + 1];
 
-                        if (newParentIndex == -1)
-                        {
-                            parentList[n + 1] = -1; 
+                        if (newParentIndex == -1) {
+                            parentList[n + 1] = -1;
                             shortestDist[n] = std::numeric_limits<double>::infinity();
-                        
-                        }
-                    
-                        else 
-                        {
-                            //std::cout<<"\nNew parent:"<< newParentIndex + 1 <<"\n";
-                             
-                            ssspTree[newParentIndex].first = newParentIndex + 1; 
-                            shortestDist[n] = newDistance; 
-                            ssspTree[newParentIndex].second.push_back(n+1);      
+                        } else {
+                            ssspTree[newParentIndex].first = newParentIndex + 1;
+                            shortestDist[n] = newDistance;
+                            ssspTree[newParentIndex].second.push_back(n + 1);
                         }
 
-                        // remove child from the parent list
-                        
-                        
-                        //std::cout<< "old parent: " << oldParent;
                         #pragma omp parallel for if(predecessorCount[v] > threshold)
-                        for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++ )
-                        {
-                            if (ssspTree[oldParent - 1].second[j] == n + 1 )
-                            {
+                        for (size_t j = 0; j < ssspTree[oldParent - 1].second.size(); j++) {
+                            if (ssspTree[oldParent - 1].second[j] == n + 1) {
                                 ssspTree[oldParent - 1].second.erase(ssspTree[oldParent - 1].second.begin() + j);
-                                
-                                //break;
                             }
                         }
-                        parentList[n + 1] = newParentIndex + 1;  
-                        
+                        parentList[n + 1] = newParentIndex + 1;
                         affectedNodes[n] = true;  // Mark as affected
                         affectedNodesQueue.push(n);
                         hasAffectedNodes = true;
