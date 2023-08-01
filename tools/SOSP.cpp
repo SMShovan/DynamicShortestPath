@@ -191,6 +191,30 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
     //     std::cout << "\n";
     // }
 
+    // Write SSSP tree to a file before returning
+
+    // Provide the file name/path where you want to save the SSSP tree
+    std::string filename = "sssp_tree.txt";
+
+    // Open the file for writing
+    std::ofstream outfile(filename);
+
+    // Check if the file was opened successfully
+    if (!outfile) {
+        std::cerr << "Error: Could not open the file for writing: " << filename << std::endl;
+    } else {
+        // Write the SSSP tree to the file
+        for (int i = 0; i < numNodes; ++i) {
+            
+            for (int child : ssspTree[i]) {
+                outfile << child << " "<< i + 1<< " " << abs(shortestDist[i] - shortestDist[child - 1])<<"\n";
+            }
+        }
+
+        // Close the file
+        outfile.close();
+    }
+
     return ssspTree;
     
 }
