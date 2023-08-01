@@ -4,7 +4,8 @@
 #include <sstream>
 #include <limits>
 #include <chrono>
-#include<queue>
+#include <queue>
+#include <algorithm>
 template<typename T>
 void removeElementsFromQueue(std::queue<T>& q, const T& value) {
     std::queue<T> tempQueue;

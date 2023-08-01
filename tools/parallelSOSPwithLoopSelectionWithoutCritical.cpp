@@ -8,6 +8,7 @@
 #include <queue>
 #include <unordered_map>
 #include <set>
+#include <algorithm>
 using namespace std;
 
 struct Edge {
@@ -278,7 +279,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
     // Identify inserted and deleted edges
     #pragma omp parallel for
-    for (const std::vector<Edge>& row : changedEdgesCSR) {
+    for (auto& row : changedEdgesCSR) {
         std::vector<Edge> privateInsertedEdges;
         std::vector<Edge> privateDeletedEdges;
 
@@ -376,7 +377,9 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
                 // Add the new edge to the graph (no critical section needed)
                 #pragma omp critical
+                {
                 graphCSR[x].push_back(Edge(x, y, edge.weight));
+                }
 
                 int oldParent = parentList[y + 1];
 

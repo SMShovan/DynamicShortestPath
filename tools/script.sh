@@ -54,6 +54,7 @@ clang++ -std=c++17 randomChangedEdges.cpp -o randomChangedEdges && ./randomChang
 
 # # Command 3 to run sosp code. g for input graph, c for changed edges, s for source. 
 clang++ -std=c++17 SOSP.cpp -o program && ./program -g $inputGraph -c changeEdges.mtx -s $source
+#g++ -std=c++17 SOSP.cpp -o program && ./program -g weightedGraph.mtx -c changeEdges.mtx -s 1
 
 # # Command 4 to run parallelSOSP code, 
 # clang++ -std=c++11 -Xpreprocessor -fopenmp -lomp parallelSOSP.cpp -o parallelSOSP && ./parallelSOSP -g $inputGraph -c changeEdges.mtx -s $source
@@ -63,3 +64,4 @@ clang++ -std=c++17 SOSP.cpp -o program && ./program -g $inputGraph -c changeEdge
 
 # # Command 6 to run parallelSOSPwithLoopSelectionWithoutCritical.cpp
 clang++ -std=c++11 -Xpreprocessor -fopenmp -lomp parallelSOSPwithLoopSelectionWithoutCritical.cpp -o parallelSOSPwithLoopSelectionWithoutCritical && ./parallelSOSPwithLoopSelectionWithoutCritical -g $inputGraph -c changeEdges.mtx -s $source
+#g++ -std=c++11 -fopenmp parallelSOSPwithLoopSelectionWithoutCritical.cpp -o parallelSOSPwithLoopSelectionWithoutCritical -g -lstdc++ -lgomclear
