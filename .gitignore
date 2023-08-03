@@ -1,7 +1,2 @@
 # Ignore large files in the tools directory
-tools/rgg_n_2_20_s0.mtx
-tools/example.mtx
-tools/weightedGraph.mtx
-tools/weighted_example.mtx
-tools/web-indochina-2004-all.mtx
-
+*.mtx
