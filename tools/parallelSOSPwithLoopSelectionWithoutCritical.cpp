@@ -10,6 +10,8 @@
 #include <set>
 #include <algorithm>
 #include <cmath>
+#include <omp.h>
+int NUM_THREADS = 4;
 
 using namespace std;
 
@@ -267,8 +269,7 @@ std::vector<std::pair<int, std::vector<int>>> convertToParentChildSSP(const std:
 }
 
 
-#include <omp.h>
-#define NUM_THREADS 4
+
 
 void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree, std::vector<std::vector<Edge>>& graphCSR, const std::vector<std::vector<Edge>>& changedEdgesCSR, std::vector<double>& shortestDist, std::vector<int>& parentList) {
     std::vector<Edge> insertedEdges;
@@ -282,10 +283,11 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
     std::unordered_map<int, std::vector<Edge>> deletedEdgeMap;
 
     // Identify inserted and deleted edges
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(NUM_THREADS)
     for (size_t i = 0; i < changedEdgesCSR.size(); ++i) {
         std::vector<Edge> privateInsertedEdges;
         std::vector<Edge> privateDeletedEdges;
+
 
         const std::vector<Edge>& row = changedEdgesCSR[i];
         for (size_t j = 0; j < row.size(); ++j) {
@@ -364,9 +366,9 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
     //         }
     //     }
 
-    #pragma omp parallel for
+    #pragma omp parallel for 
     for (int i = 0; i < insertedEdgeMap.size(); i++) {
-        #pragma omp parallel for
+        #pragma omp parallel for num_threads(NUM_THREADS)
         for (int j = 0; j < insertedEdgeMap[i].size(); j++) {
             const Edge& edge = insertedEdgeMap[i][j];
 
@@ -429,7 +431,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
     // Print the deleted edges and mark affected nodes
     //std::cout << "Deleted Edges:\n";
 
-    #pragma omp parallel for
+    #pragma omp parallel for num_threads(NUM_THREADS)
     for (int i = 0; i < deletedEdgeMap.size(); i++)
         for (const Edge& edge : deletedEdges) {
 
@@ -557,7 +559,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
     //printShortestPathTree(ssspTree);
     
-#pragma omp parallel
+#pragma omp parallel num_threads(NUM_THREADS)
 {
 
     bool hasAffectedNodes = true;
@@ -687,9 +689,9 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
 
 int main(int argc, char** argv) {
-    std::cout<< "Parallel code started"<< std::endl;
+    //std::cout<< "Parallel code started"<< std::endl;
     // Check the command-line arguments
-    if (argc < 4) {
+    if (argc < 6) {
         std::cerr << "Usage: ./program -g <graph_file> -c <changed_edges_file> -s <source_node>\n";
         return 1;
     }
@@ -710,6 +712,8 @@ int main(int argc, char** argv) {
             changedEdgesFile = argument;
         } else if (option == "-s") {
             sourceNode = std::stoi(argument);
+        }else if (option == "-t") {
+            NUM_THREADS = std::stoi(argument);
         } else {
             std::cerr << "Invalid option: " << option << "\n";
             return 1;
@@ -722,14 +726,14 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    std::cout<< "Reading Input Graph "<< std::endl;
+    //std::cout<< "Reading Input Graph "<< std::endl;
 
 
     // Convert the input graph to CSR format
     std::vector<std::vector<Edge>> graphCSR = convertToCSR(graphInputFile, true);
     graphInputFile.close();
 
-    std::cout<< "Dijkstra algorithm started"<< std::endl;
+    //std::cout<< "Dijkstra algorithm started"<< std::endl;
 
     // Find the initial shortest path tree using Dijkstra's algorithm
     std::vector<double> shortestDist(graphCSR.size(), std::numeric_limits<double>::infinity());
@@ -737,7 +741,7 @@ int main(int argc, char** argv) {
     std::vector<int> parent(graphCSR.size() + 1, -1);
     std::vector<std::vector<int>> ssspTree = dijkstra(graphCSR, sourceNode, shortestDist, parent);
 
-    std::cout<< "Dijkstra algorithm finished"<< std::endl;
+    //std::cout<< "Dijkstra algorithm finished"<< std::endl;
 
     // Convert the ssspTree to parent-child relationship data structure
     std::vector<std::pair<int, std::vector<int>>> parentChildSSP = convertToParentChildSSP(ssspTree);
@@ -756,7 +760,9 @@ int main(int argc, char** argv) {
     std::vector<std::vector<Edge>> changedEdgesCSR = convertToCSR(changedEdgesInputFile, false);
     changedEdgesInputFile.close();
 
-    std::cout<< "Update Path started"<< std::endl;
+    
+
+    //std::cout<< "Update Path started"<< std::endl;
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -764,13 +770,15 @@ int main(int argc, char** argv) {
     updateShortestPath(parentChildSSP, graphCSR, changedEdgesCSR, shortestDist, parent);
 
     auto end_time = std::chrono::high_resolution_clock::now();
-    std::cout<< "Update path ended"<< std::endl;
+    //std::cout<< "Update path ended"<< std::endl;
 
     // Calculate the elapsed time
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time);
 
     // Print the execution time
-    std::cout << "Execution time: " << duration.count() << " milliseconds" << std::endl;
+    //std::cout << "Execution time: " << duration.count() << " milliseconds" << std::endl;
+    std::cout << " "<< duration.count()  << std::endl;
+
 
 
     // Print the updated shortest path tree
@@ -778,6 +786,3 @@ int main(int argc, char** argv) {
 
     return 0;
 }
-
-
-// To Run: clang++ -std=c++11 SOSP.cpp -o program && ./program -g input_graph.mtx -c changed_edges.mtx -s 1      

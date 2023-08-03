@@ -3,6 +3,32 @@
 #include <vector>
 #include <sstream>
 #include <limits>
+#include <chrono>
+#include <omp.h>
+#include <queue>
+#include <unordered_map>
+#include <set>
+#include <algorithm>
+#include <cmath>
+#include <omp.h>
+
+template<typename T>
+void removeElementsFromQueue(std::queue<T>& q, const T& value) {
+    std::queue<T> tempQueue;
+
+    while (!q.empty()) {
+        T frontElement = q.front();
+        q.pop();
+
+        // Skip the elements with the specified value
+        if (frontElement != value) {
+            tempQueue.push(frontElement);
+        }
+    }
+
+    // Swap the contents back to the original queue
+    std::swap(q, tempQueue);
+}
 
 struct Edge {
     int source;
@@ -54,7 +80,21 @@ std::vector<std::vector<Edge>> convertToCSR(std::ifstream& inputFile, bool isGra
             predecessor[col - 1].emplace_back(row, col, value);
         }
             
-    }  
+    }
+
+    // if (isGraph)
+    // {
+    //     std::cout << "In-Degree Matrix:" << std::endl;
+    //     for (int col = 0; col < predecessor.size(); ++col) {
+    //         for (const auto& edge : predecessor[col]) {
+    //             std::cout << "(" << edge.source << ", " << edge.destination << ", " << edge.weight << ") ";
+    //         }
+    //         std::cout << std::endl;
+    //     }  
+    // }    
+        
+
+
 
     return csrMatrix;
 }
@@ -68,6 +108,8 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
     // Set the distance of the source node to itself as 0
     shortestDist[sourceNode - 1] = 0;
 
+    
+    
     // Dijkstra's algorithm
     for (int i = 0; i < numNodes - 1; ++i) {
         // Find the node with the minimum distance among the unvisited nodes
@@ -78,10 +120,18 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
                 minDist = shortestDist[j];
                 minDistNode = j;
             }
+            
         }
+        
 
         // Mark the minimum distance node as visited
+
+        if (minDistNode == -1) {
+            break;
+        }
+
         visited[minDistNode] = true;
+        
 
         // Update the distances of the neighboring nodes
         for (const Edge& edge : graphCSR[minDistNode]) {
@@ -93,6 +143,13 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
         }
     }
 
+    //std::cout<<"Still okay"<<std::endl;
+    
+
+    
+
+    
+    
     // Build the shortest path tree based on the shortest distances
     std::vector<std::vector<int>> ssspTree(numNodes);
     std::vector<bool> cycleCheck (numNodes, false);
@@ -110,9 +167,82 @@ std::vector<std::vector<int>> dijkstra(const std::vector<std::vector<Edge>>& gra
         }
     }
 
+    
+    
+    
+
+    // // Print shortestDist
+    // std::cout << "Parent list:\n";
+    // for (int i = 1; i <= numNodes; ++i) {
+    //     std::cout<< "Child: "<< i << " Parent: "<< parentList[i];
+    // }
+
+    // // Print shortestDist
+    // std::cout << "Shortest Distances:\n";
+    // for (int i = 0; i < numNodes; ++i) {
+    //     if (shortestDist[i] == std::numeric_limits<double>::infinity()) {
+    //         std::cout << "Node " << i + 1 << ": Infinity\n";
+    //     } else {
+    //         std::cout << "Node " << i + 1 << ": " << shortestDist[i] << "\n";
+    //     }
+    // }
+
+    // // Print ssspTree
+    // std::cout << "Shortest Path Tree:\n";
+    // for (int i = 0; i < numNodes; ++i) {
+    //     std::cout << "Node " << i + 1 << ": ";
+    //     for (int child : ssspTree[i]) {
+    //         std::cout << child << " ";
+    //     }
+    //     std::cout << "\n";
+    // }
+
+    // Write SSSP tree to a file before returning
+
+    // // Provide the file name/path where you want to save the SSSP tree
+    // std::string filename = "sssp_tree.txt";
+
+    // // Open the file for writing
+    // std::ofstream outfile(filename);
+
+    // // Check if the file was opened successfully
+    // if (!outfile) {
+    //     std::cerr << "Error: Could not open the file for writing: " << filename << std::endl;
+    // } else {
+    //     // Write the SSSP tree to the file
+    //     for (int i = 0; i < numNodes; ++i) {
+            
+    //         for (int child : ssspTree[i]) {
+    //             outfile << child << " "<< i + 1<< " " << abs(shortestDist[i] - shortestDist[child - 1])<<"\n";
+    //         }
+    //     }
+
+    //     // Close the file
+    //     outfile.close();
+    // }
+
     return ssspTree;
+    
 }
 
+
+
+// void printShortestPathTree(const std::vector<std::vector<int>>& ssspTree) {
+//     std::cout << "Shortest Path Tree:\n";
+
+//     for (int i = 0; i < ssspTree.size(); i++) {
+//         std::cout << "Node " << i + 1 << ": ";
+
+//         if (ssspTree[i].empty()) {
+//             std::cout << "No child nodes\n";
+//         } else {
+//             for (int child : ssspTree[i]) {
+//                 std::cout << child << " ";
+//             }
+//             std::cout << "\n";
+//         }
+//     }
+// }
 
 void printShortestPathTree(const std::vector<std::pair<int, std::vector<int>>>& parentChildSSP) {
     std::cout << "Shortest Path Tree:\n";
@@ -126,13 +256,16 @@ void printShortestPathTree(const std::vector<std::pair<int, std::vector<int>>>& 
 }
 
 
-void markSubtreeAffected(std::vector<std::pair<int, std::vector<int>>>& parentChildSSP, std::vector<double>& shortestDist, std::vector<bool>& affectedNodes,std::vector<bool>& affectedDelNodes, int node) {
+void markSubtreeAffected(std::vector<std::pair<int, std::vector<int>>>& parentChildSSP, std::vector<double>& shortestDist, std::vector<bool>& affectedNodes, std::queue<int>& affectedNodesQueue, std::vector<bool>& affectedDelNodes, int node) {
+
     affectedNodes[node] = true;
-    affectedDelNodes[node] = false;
+    affectedNodesQueue.push(node);
+    affectedDelNodes[node] = true;
     shortestDist[node] = std::numeric_limits<double>::infinity();
 
     for (int child : parentChildSSP[node].second) {
-        markSubtreeAffected(parentChildSSP, shortestDist, affectedNodes, affectedDelNodes,  child);
+        if( !affectedDelNodes[child])
+            markSubtreeAffected(parentChildSSP, shortestDist, affectedNodes, affectedNodesQueue, affectedDelNodes,  child);
     }
 }
 
@@ -145,6 +278,14 @@ std::vector<std::pair<int, std::vector<int>>> convertToParentChildSSP(const std:
         parentChildSSP[i].second = ssspTree[i];  // Set the child nodes
     }
 
+    // std::cout << "Parent-Child SSP Tree:\n";
+    // for (const auto& node : parentChildSSP) {
+    //     std::cout << "Parent: " << node.first << ", Children: ";
+    //     for (int child : node.second) {
+    //         std::cout << child << " ";
+    //     }
+    //     std::cout << "\n";
+    // }
 
     return parentChildSSP;
 }
@@ -156,6 +297,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
     std::vector<Edge> deletedEdges;
     std::vector<bool> affectedNodes(ssspTree.size(), false);
     std::vector<bool> affectedDelNodes(ssspTree.size(), false);
+    std::queue<int> affectedNodesQueue;
 
     // Identify inserted and deleted edges
     for (const std::vector<Edge>& row : changedEdgesCSR) {
@@ -167,14 +309,24 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             }
         }
     }
+    
+
+    
 
     // Print the inserted edges and identify affected nodes
-    std::cout << "Inserted Edges:\n";
+    //std::cout << "Inserted Edges:\n";
     for (const Edge& edge : insertedEdges) {
-        std::cout << "Source: " << edge.source + 1 << " Destination: " << edge.destination + 1 << " Weight: " << edge.weight << "\n";
+        //std::cout << "Source: " << edge.source + 1 << " Destination: " << edge.destination + 1 << " Weight: " << edge.weight << "\n";
         
         int x,y; 
-        
+        // if(shortestDist[edge.source] > shortestDist[edge.destination]){
+        //     x = edge.destination; 
+        //     y = edge.source;
+        // }  
+        // else{
+        //     x = edge.source; 
+        //     y = edge.destination;
+        // }
         x = edge.source;
         y = edge.destination;
         if (shortestDist[y] > shortestDist[x] + edge.weight) {
@@ -198,15 +350,23 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             parentList[y+1] = x + 1;
             ssspTree[x].second.push_back(y+1);
             affectedNodes[y] = true; 
+            affectedNodesQueue.push(y);
             
             
         }
     }
 
+    
+
     // Print the deleted edges and mark affected nodes
-    std::cout << "Deleted Edges:\n";
+    //std::cout << "Deleted Edges:\n";
+
+    int check = 0; 
+
     for (const Edge& edge : deletedEdges) {
 
+        
+        
         //Delete the edge from the graph 
         for (int i = 0; i < graphCSR[edge.source].size(); ++i) {
         if (graphCSR[edge.source][i].source == edge.source && graphCSR[edge.source][i].destination == edge.destination) {
@@ -214,8 +374,11 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             break;
         }
         }
-        
-        
+
+
+        // After deletion from graph, check if the deleted edges belong to ssspTree. 
+
+        bool inTree = false;
 
        // Delete the element from the predecessor as well
 
@@ -225,21 +388,32 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             // Find the iterator pointing to the element
             auto it = std::find(predecessor[edge.destination].begin(), predecessor[edge.destination].end(), preEdge);
             
+            for (int i = 0; i < ssspTree[edge.source].second.size() ; i++)
+            {
+                if (ssspTree[edge.source].second[i] == edge.destination + 1)
+                //std::cout<<"Found in tree"<<std::endl;
+                inTree = true;
+
+            }
 
             if (it != predecessor[edge.destination].end()) {
 
                 predecessor[edge.destination].erase(it);
-
+                
             }
         }
 
+        check++;
+
+        if (!inTree)
+            continue;
         
-
-        markSubtreeAffected(ssspTree, shortestDist, affectedNodes, affectedDelNodes, edge.destination);
-
+        markSubtreeAffected(ssspTree, shortestDist, affectedNodes, affectedNodesQueue, affectedDelNodes, edge.destination);
+        
 
         //std::cout << "Source: " << edge.source + 1 << " Destination: " << edge.destination + 1 << " Weight: " << edge.weight << "\n";
         affectedNodes[edge.destination] = true;
+        affectedNodesQueue.push(edge.destination);
         affectedDelNodes[edge.destination] = true;
         shortestDist[edge.destination] = std::numeric_limits<double>::infinity();
 
@@ -248,6 +422,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
         //std::cout<<"\nPredecessor of "<< n + 1 <<" ";
         int newDistance = std::numeric_limits<double>::infinity();
         int newParentIndex = -1; 
+
 
 
         
@@ -262,6 +437,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
             } 
         }
         int oldParent = parentList[edge.destination + 1];
+        
 
         if (newParentIndex == -1)
         {
@@ -270,14 +446,16 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
         }   
         else 
-        {              
+        {    
+                      
             ssspTree[newParentIndex].first = newParentIndex + 1; 
             shortestDist[n] = newDistance; 
-            std::cout<< "New parent: "<< newParentIndex + 1<< " child "<< n + 1<< "\n"; 
+            //std::cout<< "New parent: "<< newParentIndex + 1<< " child "<< n + 1<< "\n"; 
             ssspTree[newParentIndex].second.push_back(n+1);      
         }
 
-    
+                    
+
 
         //std::cout << "Old parent" <<  oldParent << "\n";
 
@@ -293,30 +471,56 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
         
         parentList[edge.destination + 1] = newParentIndex + 1; 
-
-    
+        
             
 
     }
 
+    
+
      
+
+    // std::cout << "Affected Nodes:\n";
+    // for (int i = 0; i < affectedNodes.size(); i++) {
+    //     if (affectedNodes[i]) {
+    //         std::cout << "Node " << i + 1 << "\n";
+    //     }
+    // }
+
+    //printShortestPathTree(ssspTree);
+
+
+    
+    
 
     bool hasAffectedNodes = true;
     while (hasAffectedNodes) {
 
+        
 
         hasAffectedNodes = false;
 
+        int infinityLoopBreaker = 0; 
+        
         // Check for affected nodes and update distances
-        for (int v = 0; v < ssspTree.size(); ++v) {
+        while(!affectedNodesQueue.empty()){
+        //for (int v = 0; v < ssspTree.size(); ++v) {
+            int v = affectedNodesQueue.front();
+            affectedNodesQueue.pop();
+            
             if (affectedNodes[v]) {
-                
+
                 affectedNodes[v] = false;  // Reset affected flag
+                
+                if (++infinityLoopBreaker == graphCSR.size())
+                    break;  
                 
                 //std::cout<< "Effected nodes source " << v+1;
 
                 for (const Edge& edge : graphCSR[v] ) {
                     int n = edge.destination;
+        
+                    
                     
                     //std::cout<< " -> destination"<< n + 1 <<"";
 
@@ -342,16 +546,17 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
 
                         ssspTree[v].second.push_back(n+1); 
                         affectedNodes[n] = true;  // Mark as affected
+                        affectedNodesQueue.push(n);
                         hasAffectedNodes = true;  // Set flag for next iteration
-
                     }
-                    
+
+                
                     // for deletion
                     if ( shortestDist[v] == std::numeric_limits<double>::infinity() ){
 
                         // find new parent or put the shortest distance to infinity
 
-                        std::cout<<"\nPredecessor of "<< n + 1 <<" ";
+                        //std::cout<<"\nPredecessor of "<< n + 1 <<" ";
                         int newDistance = std::numeric_limits<double>::infinity();
                         int newParentIndex = -1; 
                         for (int i = 0; i < predecessor[n].size(); i++)
@@ -362,7 +567,15 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
                                 newParentIndex = predecessor[n][i].source - 1;
                             } 
                         }
+
+                        //No one is parent of the source node here source is 1 (it needs to be generalized)
+                        if ( n + 1 == 1)
+                            continue;
+                        
                         int oldParent = parentList[n + 1];
+                        
+                        
+                        
 
                         if (newParentIndex == -1)
                         {
@@ -383,9 +596,9 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
                         // remove child from the parent list
                         
                         
-                        std::cout<< "old parent: " << oldParent;
                         for (int j = 0; j < ssspTree[oldParent - 1].second.size(); j++ )
                         {
+                            
                             if (ssspTree[oldParent - 1].second[j] == n + 1 )
                             {
                                 ssspTree[oldParent - 1].second.erase(ssspTree[oldParent - 1].second.begin() + j);
@@ -395,6 +608,7 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
                         parentList[n + 1] = newParentIndex + 1;  
                         
                         affectedNodes[n] = true;  // Mark as affected
+                        affectedNodesQueue.push(n);
                         hasAffectedNodes = true;
                     }
                 }
@@ -402,69 +616,256 @@ void updateShortestPath(std::vector<std::pair<int, std::vector<int>>>& ssspTree,
         }
     }
 
-    
+
 
     
 
-    int numNodes = ssspTree.size();
-    std::vector<std::vector<int>> ssspTree2(numNodes);
-    std::vector<bool> cycleCheck(numNodes, false);
+    // int numNodes = ssspTree.size();
+    // std::vector<std::vector<int>> ssspTree2(numNodes);
+    // std::vector<bool> cycleCheck(numNodes, false);
+    // for (int i = 0; i < numNodes; ++i) {
+    //     if (shortestDist[i] != std::numeric_limits<double>::infinity()) {
+    //         int parent = i + 1;
+    //         for (const Edge& edge : graphCSR[i]) {
+    //             int child = edge.destination + 1;
+    //             if (shortestDist[child - 1] == shortestDist[i] + edge.weight && !cycleCheck[child - 1]) {
+    //                 ssspTree2[parent - 1].push_back(child);
+    //                 cycleCheck[child - 1] = true; 
+    //             }
+    //         }
+    //     }
+    // }
+    // // Print shortestDist
+    // std::cout << "\nShortest Distances:\n";
+    // for (int i = 0; i < numNodes; ++i) {
+    //     if (shortestDist[i] == std::numeric_limits<double>::infinity()) {
+    //         std::cout << "Node " << i + 1 << ": Infinity\n";
+    //     } else {
+    //         std::cout << "Node " << i + 1 << ": " << shortestDist[i] << "\n";
+    //     }
+    // }
+
+    // //Print ssspTree
+    // std::cout << "Correct Shortest Path Tree:\n";
+    // for (int i = 0; i < numNodes; ++i) {
+    //     std::cout << "Node " << i + 1 << ": ";
+    //     for (int child : ssspTree2[i]) {
+    //         std::cout << child << " ";
+    //     }
+    //     std::cout << "\n";
+    // }
+
+}
+
+std::vector<std::vector<std::pair<int, int>>>  combineGraphs(const std::vector<std::pair<int, std::vector<int>>>& parentChildSSP1, const std::vector<std::pair<int, std::vector<int>>>& parentChildSSP2) {
+
+     int maxNodeIndex = 0;
+
+    // Find the maximum node index in both input graphs
+    for (const auto& node : parentChildSSP1) {
+        maxNodeIndex = std::max(maxNodeIndex, node.first);
+        for (int child : node.second) {
+            maxNodeIndex = std::max(maxNodeIndex, child);
+        }
+    }
+
+    
+
+    for (const auto& node : parentChildSSP2) {
+        maxNodeIndex = std::max(maxNodeIndex, node.first);
+        for (int child : node.second) {
+            maxNodeIndex = std::max(maxNodeIndex, child);
+        }
+    }
+
+    
+
+    // Initialize the combinedGraph vector with the appropriate size
+    std::vector<std::vector<std::pair<int, int>>> combinedGraph(maxNodeIndex);
+
+
+    // Iterate over nodes in parentChildSSP1
+    for (const auto& node : parentChildSSP1) {
+        int parent1 = node.first;
+        const std::vector<int>& children1 = node.second;
+
+        // Add children of parent1 to combinedGraph with edge weight 1
+        for (int child1 : children1) {
+            combinedGraph[parent1 - 1].push_back({child1,2});
+        }
+    }
+
+    
+    
+    // Iterate over nodes in parentChildSSP2
+    for (const auto& node : parentChildSSP2) {
+        int parent2 = node.first;
+        const std::vector<int>& children2 = node.second;
+
+        for (int child2 : children2) {
+            // Check if the child node already exists in combinedGraph
+            bool foundChild = false;
+            for (auto& childPair : combinedGraph[parent2 - 1]) {
+                if (childPair.first == child2) {
+                    foundChild = true;
+                    childPair.second = 1;
+                    break;
+                }
+            }
+
+            // Add the child node with the appropriate edge weight
+            if (!foundChild) {
+                combinedGraph[parent2 - 1].push_back({child2, 2});
+            }
+        }
+    }
+    
+    // Print the combined graph
+    // std::cout << "\nCombined Graph:\n";
+    // for (int i = 0; i < combinedGraph.size(); i++) {
+    //     std::cout << "Node " << i + 1 << ": ";
+    //     for ( auto& childPair : combinedGraph[i]) {
+    //         int child = childPair.first;
+    //         std::cout << "(" << child << ", " << childPair.second << ") ";
+    //     }
+    //     std::cout << "\n";
+    // }
+
+    return combinedGraph;
+}
+
+std::vector<std::pair<int, int>> dijkstra2(const std::vector<std::vector<std::pair<int, int>>>& graph, int source) {
+    int numNodes = graph.size();
+    std::vector<int> distance(numNodes, std::numeric_limits<int>::max());
+    std::vector<int> parent(numNodes, -1);
+    std::vector<bool> visited(numNodes, false);
+
+    distance[source - 1] = 0;
+
+    // Use a priority queue to get the node with the smallest distance
+    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<std::pair<int, int>>> pq;
+    pq.push({0, source - 1});
+
+    while (!pq.empty()) {
+        int u = pq.top().second;
+        pq.pop();
+
+        if (visited[u]) {
+            continue;
+        }
+
+        visited[u] = true;
+
+        for (const auto& edge : graph[u]) {
+            int v = edge.first;
+            int weight = edge.second;
+            if (!visited[v - 1] && distance[u] + weight < distance[v - 1]) {
+                distance[v - 1] = distance[u] + weight;
+                parent[v - 1] = u;
+                pq.push({distance[v - 1], v - 1});
+            }
+        }
+    }
+
+    std::vector<std::pair<int, int>> shortestPathTree;
     for (int i = 0; i < numNodes; ++i) {
-        if (shortestDist[i] != std::numeric_limits<double>::infinity()) {
-            int parent = i + 1;
-            for (const Edge& edge : graphCSR[i]) {
-                int child = edge.destination + 1;
-                if (shortestDist[child - 1] == shortestDist[i] + edge.weight && !cycleCheck[child - 1]) {
-                    ssspTree2[parent - 1].push_back(child);
-                    cycleCheck[child - 1] = true; 
+        if (i != source - 1) {
+            shortestPathTree.emplace_back(i + 1, parent[i] + 1);
+        }
+    }
+
+    return shortestPathTree;
+}
+
+std::vector<std::pair<int, int>> bellmanFord(const std::vector<std::vector<std::pair<int, int>>>& combinedGraph, int source = 1) {
+    int numNodes = combinedGraph.size();
+    std::vector<int> distance(numNodes, std::numeric_limits<int>::max());
+    std::vector<int> parent(numNodes, -1);
+
+    distance[source - 1] = 0;
+
+    
+
+    // Relax edges repeatedly
+    for (int i = 1; i < numNodes; ++i) {
+        for (int u = 0; u < numNodes; ++u) {
+            
+            for (const auto& edge : combinedGraph[u]) {
+                std::cout<<"Good till here " <<std::endl;
+                
+                int v = edge.first;
+                int weight = edge.second;
+                    
+                if (distance[u] != std::numeric_limits<int>::max() && distance[u] + weight < distance[v - 1]) {
+                    distance[v - 1] = distance[u] + weight;
+                    parent[v - 1] = u;
                 }
             }
         }
     }
-    // Print shortestDist
-    std::cout << "\nShortest Distances:\n";
+    
+
+    // //Check for negative cycles
+    // for (int u = 0; u < numNodes; ++u) {
+    //     for (const auto& edge : combinedGraph[u]) {
+    //         int v = edge.first;
+    //         int weight = edge.second;
+    //         if (distance[u] != std::numeric_limits<int>::max() && distance[u] + weight < distance[v - 1]) {
+    //             std::cout << "Graph contains a negative cycle!" << std::endl;
+                
+    //         }
+    //     }
+    //}
+
+    std::vector<std::pair<int, int>> shortestPathTree;
     for (int i = 0; i < numNodes; ++i) {
-        if (shortestDist[i] == std::numeric_limits<double>::infinity()) {
-            std::cout << "Node " << i + 1 << ": Infinity\n";
-        } else {
-            std::cout << "Node " << i + 1 << ": " << shortestDist[i] << "\n";
+        if (i + 1 != source) { // Exclude the source node
+            shortestPathTree.emplace_back(i + 1, parent[i] + 1);
         }
     }
-
-    // Print ssspTree
-    std::cout << "Correct Shortest Path Tree:\n";
-    for (int i = 0; i < numNodes; ++i) {
-        std::cout << "Node " << i + 1 << ": ";
-        for (int child : ssspTree2[i]) {
-            std::cout << child << " ";
-        }
-        std::cout << "\n";
-    }
-
+    return shortestPathTree;
 }
 
+std::vector<std::pair<int, std::vector<int>>> convertParentCombinedToParentChildSSP(const std::vector<int>& parentCombined) {
+    std::vector<std::pair<int, std::vector<int>>> parentChildSSP(parentCombined.size());
+
+    for (int i = 0; i < parentCombined.size(); ++i) {
+        parentChildSSP[i].first = i + 1;  // Set the node as the parent in the parent-child SSP structure
+        int parent = parentCombined[i];
+        if (parent != -1) {
+            parentChildSSP[parent].second.push_back(i + 1);  // Set the child nodes
+        }
+    }
+
+    return parentChildSSP;
+}
 
 int main(int argc, char** argv) {
     // Check the command-line arguments
-    if (argc < 4) {
-        std::cerr << "Usage: ./program -g <graph_file> -c <changed_edges_file> -s <source_node>\n";
+    if (argc < 8) {
+        std::cerr << "Usage: ./program -g1 <graph_file1> -c1 <changed_edges_file1> -g2 <graph_file2> -c2 <changed_edges_file2> -s <source_node>\n";
         return 1;
     }
 
-    std::string graphFile;
-    std::string changedEdgesFile;
+    std::string graphFile1;
+    std::string changedEdgesFile1;
+    std::string graphFile2;
+    std::string changedEdgesFile2;
     int sourceNode;
-    
 
     // Parse the command-line arguments
     for (int i = 1; i < argc; i += 2) {
         std::string option(argv[i]);
         std::string argument(argv[i + 1]);
 
-        if (option == "-g") {
-            graphFile = argument;
-        } else if (option == "-c") {
-            changedEdgesFile = argument;
+        if (option == "-g1") {
+            graphFile1 = argument;
+        } else if (option == "-c1") {
+            changedEdgesFile1 = argument;
+        } else if (option == "-g2") {
+            graphFile2 = argument;
+        } else if (option == "-c2") {
+            changedEdgesFile2 = argument;
         } else if (option == "-s") {
             sourceNode = std::stoi(argument);
         } else {
@@ -473,46 +874,87 @@ int main(int argc, char** argv) {
         }
     }
 
-    std::ifstream graphInputFile(graphFile);
-    if (!graphInputFile.is_open()) {
-        std::cerr << "Unable to open graph file: " << graphFile << std::endl;
+    std::ifstream graphInputFile1(graphFile1);
+    if (!graphInputFile1.is_open()) {
+        std::cerr << "Unable to open graph file 1: " << graphFile1 << std::endl;
         return 1;
     }
 
-    // Convert the input graph to CSR format
-    std::vector<std::vector<Edge>> graphCSR = convertToCSR(graphInputFile, true);
-    graphInputFile.close();
-
-    // Find the initial shortest path tree using Dijkstra's algorithm
-    std::vector<double> shortestDist(graphCSR.size(), std::numeric_limits<double>::infinity());
-    std::vector<int> parent(graphCSR.size() + 1, -1);
-    std::vector<std::vector<int>> ssspTree = dijkstra(graphCSR, sourceNode, shortestDist, parent);
-
-    // Convert the ssspTree to parent-child relationship data structure
-    std::vector<std::pair<int, std::vector<int>>> parentChildSSP = convertToParentChildSSP(ssspTree);
-
-
-    // Read the changed edges file in Matrix Market format
-    std::ifstream changedEdgesInputFile(changedEdgesFile);
-    if (!changedEdgesInputFile.is_open()) {
-        std::cerr << "Unable to open changed edges file: " << changedEdgesFile << std::endl;
+    std::ifstream graphInputFile2(graphFile2);
+    if (!graphInputFile2.is_open()) {
+        std::cerr << "Unable to open graph file 2: " << graphFile2 << std::endl;
         return 1;
     }
 
-  
+    // Convert the input graphs to CSR format
+    std::cout<<"Graph is converting to CSR"<<std::endl;
+    std::vector<std::vector<Edge>> graphCSR1 = convertToCSR(graphInputFile1, true);
+    std::vector<std::vector<Edge>> graphCSR2 = convertToCSR(graphInputFile2, true);
+    graphInputFile1.close();
+    graphInputFile2.close();
+
+    // Find the initial shortest path trees using Dijkstra's algorithm
+    std::cout<<"Finding the shortest distance of graph 1"<<std::endl;
+    std::vector<double> shortestDist1(graphCSR1.size(), std::numeric_limits<double>::infinity());
+    std::vector<int> parent1(graphCSR1.size() + 1, -1);
+    std::cout<<"Dijkstra started for of graph 1"<<std::endl;
+    std::vector<std::vector<int>> ssspTree1 = dijkstra(graphCSR1, sourceNode, shortestDist1, parent1);
+    std::cout<<"Finding the shortest distance of graph 2"<<std::endl;
+    std::vector<double> shortestDist2(graphCSR2.size(), std::numeric_limits<double>::infinity());
+    std::vector<int> parent2(graphCSR2.size() + 1, -1);
+    std::cout<<"Dijkstra started for of graph 1"<<std::endl;
+    std::vector<std::vector<int>> ssspTree2 = dijkstra(graphCSR2, sourceNode, shortestDist2, parent2);
+
+    // Convert the ssspTrees to parent-child relationship data structure
+    std::vector<std::pair<int, std::vector<int>>> parentChildSSP1 = convertToParentChildSSP(ssspTree1);
+    std::vector<std::pair<int, std::vector<int>>> parentChildSSP2 = convertToParentChildSSP(ssspTree2);
+
+    std::ifstream changedEdgesInputFile1(changedEdgesFile1);
+    if (!changedEdgesInputFile1.is_open()) {
+        std::cerr << "Unable to open changed edges file 1: " << changedEdgesFile1 << std::endl;
+        return 1;
+    }
+
+    std::ifstream changedEdgesInputFile2(changedEdgesFile2);
+    if (!changedEdgesInputFile2.is_open()) {
+        std::cerr << "Unable to open changed edges file 2: " << changedEdgesFile2 << std::endl;
+        return 1;
+    }
 
     // Convert the changed edges to CSR format
-    std::vector<std::vector<Edge>> changedEdgesCSR = convertToCSR(changedEdgesInputFile, false);
-    changedEdgesInputFile.close();
+    std::vector<std::vector<Edge>> changedEdgesCSR1 = convertToCSR(changedEdgesInputFile1, false);
+    std::vector<std::vector<Edge>> changedEdgesCSR2 = convertToCSR(changedEdgesInputFile2, false);
+    changedEdgesInputFile1.close();
+    changedEdgesInputFile2.close();
 
-    // Update the shortest path tree based on the changed edges
-    updateShortestPath(parentChildSSP, graphCSR, changedEdgesCSR, shortestDist, parent);
+    // Update the shortest path trees based on the changed edges
+    std::cout<<"Updating the shortest path for of graph 1"<<std::endl;
+    updateShortestPath(parentChildSSP1, graphCSR1, changedEdgesCSR1, shortestDist1, parent1);
+    std::cout<<"Updating the shortest path for of graph 2"<<std::endl;
+    updateShortestPath(parentChildSSP2, graphCSR2, changedEdgesCSR2, shortestDist2, parent2);
 
-    // Print the updated shortest path tree
-    printShortestPathTree(parentChildSSP);
+    // Print the updated shortest path trees
+    //std::cout << "Shortest Path Tree 1:\n";
+    //printShortestPathTree(parentChildSSP1);
+
+    //std::cout << "\nShortest Path Tree 2:\n";
+    //printShortestPathTree(parentChildSSP2);
+
+    std::cout<<"Combining the graphs"<<std::endl;
+    std::vector<std::vector<std::pair<int, int>>>  combinedGraph = combineGraphs(parentChildSSP1, parentChildSSP2);
+
+    std::cout<<"Dijkstra is running"<<std::endl;
+
+    std::vector<std::pair<int, int>> shortestPathTree = dijkstra2(combinedGraph, 1);
+
+    //Print the shortest path tree
+    // for (const auto& node : shortestPathTree) {
+    //     std::cout << "Node " << node.first << ": Parent = " << node.second << "\n";
+    // }
+
+
+
+    std::cout<<"DONE"<<std::endl;
 
     return 0;
 }
-
-
-// To run: clang++ -std=c++11 MOSP.cpp -o program && ./program -g input_graph.mtx -c changed_edges.mtx -s 1
